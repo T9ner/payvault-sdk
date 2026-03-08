@@ -641,4 +641,4 @@ We welcome contributions! Here's how:
 
 MIT License. See [LICENSE](LICENSE) for details.
 
-Built with care for African developers, by African developers.
+Built with care for African developers, by T9ner🧑‍💻.
