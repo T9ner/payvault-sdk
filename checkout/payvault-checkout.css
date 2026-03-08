@@ -1,0 +1,1010 @@
+/**
+ * PayVault Checkout v1.0.0 — Stylesheet
+ * Stripe-quality visual design for African payment checkout.
+ * All classes prefixed with `pv-` to avoid conflicts.
+ *
+ * (c) 2026 PayVault. All rights reserved.
+ */
+
+/* ==========================================================================
+   CSS CUSTOM PROPERTIES (THEMING)
+   ========================================================================== */
+
+.pv-checkout {
+  /* Light theme (default) */
+  --pv-primary: #635BFF;
+  --pv-primary-hover: #5046E4;
+  --pv-primary-light: rgba(99, 91, 255, 0.08);
+  --pv-primary-ring: rgba(99, 91, 255, 0.35);
+  --pv-bg: #FFFFFF;
+  --pv-bg-secondary: #F6F8FA;
+  --pv-bg-input: #FFFFFF;
+  --pv-text: #0A2540;
+  --pv-text-secondary: #516F90;
+  --pv-text-muted: #8898AA;
+  --pv-border: #E3E8EE;
+  --pv-border-focus: #635BFF;
+  --pv-error: #DF1B41;
+  --pv-error-bg: rgba(223, 27, 65, 0.06);
+  --pv-success: #30B566;
+  --pv-success-bg: rgba(48, 181, 102, 0.06);
+  --pv-warning: #F5A623;
+  --pv-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --pv-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --pv-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.15);
+  --pv-shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.3);
+  --pv-radius: 8px;
+  --pv-radius-lg: 12px;
+  --pv-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --pv-transition-fast: 150ms ease;
+  --pv-transition: 200ms ease;
+  --pv-transition-slow: 300ms ease;
+  --pv-backdrop: rgba(0, 0, 0, 0.5);
+}
+
+/* Dark theme */
+.pv-checkout[data-theme="dark"] {
+  --pv-primary: #7C6BFF;
+  --pv-primary-hover: #8F80FF;
+  --pv-primary-light: rgba(124, 107, 255, 0.12);
+  --pv-primary-ring: rgba(124, 107, 255, 0.4);
+  --pv-bg: #1A1A2E;
+  --pv-bg-secondary: #16162A;
+  --pv-bg-input: #222240;
+  --pv-text: #E8E8F0;
+  --pv-text-secondary: #A0A0B8;
+  --pv-text-muted: #6B6B82;
+  --pv-border: #2E2E4A;
+  --pv-border-focus: #7C6BFF;
+  --pv-error: #FF6B8A;
+  --pv-error-bg: rgba(255, 107, 138, 0.1);
+  --pv-success: #4ADE80;
+  --pv-success-bg: rgba(74, 222, 128, 0.1);
+  --pv-warning: #FFD166;
+  --pv-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --pv-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --pv-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.4);
+  --pv-shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.6);
+  --pv-backdrop: rgba(0, 0, 0, 0.7);
+}
+
+/* ==========================================================================
+   RESET & BASE
+   ========================================================================== */
+
+.pv-checkout,
+.pv-checkout *,
+.pv-checkout *::before,
+.pv-checkout *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.pv-checkout {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  font-family: var(--pv-font);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--pv-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Initial state: invisible */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--pv-transition-slow), visibility var(--pv-transition-slow);
+}
+
+.pv-checkout.pv-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.pv-checkout.pv-closing {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* ==========================================================================
+   BACKDROP
+   ========================================================================== */
+
+.pv-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--pv-backdrop);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   MODAL CONTAINER
+   ========================================================================== */
+
+.pv-modal {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(100%);
+  width: 100%;
+  max-width: 420px;
+  max-height: 96vh;
+  background: var(--pv-bg);
+  border-radius: var(--pv-radius-lg) var(--pv-radius-lg) 0 0;
+  box-shadow: var(--pv-shadow-modal);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform var(--pv-transition-slow) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pv-open .pv-modal {
+  transform: translateX(-50%) translateY(0);
+}
+
+.pv-closing .pv-modal {
+  transform: translateX(-50%) translateY(100%);
+}
+
+/* Desktop: centered modal with full border-radius */
+@media (min-width: 481px) {
+  .pv-modal {
+    bottom: auto;
+    top: 50%;
+    transform: translateX(-50%) translateY(-45%);
+    border-radius: var(--pv-radius-lg);
+    max-height: 90vh;
+    opacity: 0;
+    transition:
+      transform var(--pv-transition-slow) cubic-bezier(0.22, 1, 0.36, 1),
+      opacity var(--pv-transition-slow) ease;
+  }
+
+  .pv-open .pv-modal {
+    transform: translateX(-50%) translateY(-50%);
+    opacity: 1;
+  }
+
+  .pv-closing .pv-modal {
+    transform: translateX(-50%) translateY(-45%);
+    opacity: 0;
+  }
+}
+
+/* Mobile: full-screen */
+@media (max-width: 480px) {
+  .pv-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    max-height: 100dvh;
+    border-radius: 0;
+    bottom: 0;
+    top: 0;
+  }
+
+  .pv-open .pv-modal {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ==========================================================================
+   TEST MODE BANNER
+   ========================================================================== */
+
+.pv-test-banner {
+  background: linear-gradient(90deg, #FEF3CD, #FFF3BF);
+  padding: 6px 16px;
+  text-align: center;
+  border-bottom: 1px solid #F0D56E;
+  flex-shrink: 0;
+}
+
+.pv-checkout[data-theme="dark"] .pv-test-banner {
+  background: linear-gradient(90deg, #3D3520, #3D3520);
+  border-bottom-color: #5A4E2A;
+}
+
+.pv-test-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #856404;
+}
+
+.pv-checkout[data-theme="dark"] .pv-test-badge {
+  color: #FFD166;
+}
+
+/* ==========================================================================
+   HEADER
+   ========================================================================== */
+
+.pv-header {
+  position: relative;
+  padding: 24px 24px 16px;
+  text-align: center;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--pv-border);
+}
+
+.pv-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--pv-bg-secondary);
+  color: var(--pv-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--pv-transition), color var(--pv-transition), transform var(--pv-transition-fast);
+}
+
+.pv-close-btn:hover {
+  background: var(--pv-border);
+  color: var(--pv-text);
+}
+
+.pv-close-btn:active {
+  transform: scale(0.92);
+}
+
+.pv-close-btn:focus-visible {
+  outline: 2px solid var(--pv-primary);
+  outline-offset: 2px;
+}
+
+.pv-header-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.pv-logo {
+  margin-bottom: 8px;
+}
+
+.pv-amount {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--pv-text);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.pv-email {
+  font-size: 13px;
+  color: var(--pv-text-muted);
+}
+
+/* ==========================================================================
+   TABS
+   ========================================================================== */
+
+.pv-tabs {
+  display: flex;
+  position: relative;
+  padding: 4px;
+  margin: 12px 20px 0;
+  background: var(--pv-bg-secondary);
+  border-radius: var(--pv-radius);
+  flex-shrink: 0;
+}
+
+.pv-tab {
+  flex: 1;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: var(--pv-text-secondary);
+  font-family: var(--pv-font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color var(--pv-transition), background var(--pv-transition);
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.pv-tab:hover {
+  color: var(--pv-text);
+}
+
+.pv-tab.pv-active {
+  color: var(--pv-text);
+}
+
+.pv-tab:focus-visible {
+  outline: 2px solid var(--pv-primary);
+  outline-offset: 2px;
+}
+
+/* Sliding indicator pill behind active tab */
+.pv-tab-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  background: var(--pv-bg);
+  border-radius: 6px;
+  box-shadow: var(--pv-shadow-sm);
+  transition: left var(--pv-transition-slow) cubic-bezier(0.22, 1, 0.36, 1),
+              width var(--pv-transition-slow) cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 0;
+}
+
+/* ==========================================================================
+   CONTENT AREA
+   ========================================================================== */
+
+.pv-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 24px;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth scroll hint at bottom */
+.pv-content::after {
+  content: '';
+  position: sticky;
+  bottom: 0;
+  display: block;
+  height: 24px;
+  background: linear-gradient(transparent, var(--pv-bg));
+  pointer-events: none;
+  margin-top: -24px;
+}
+
+/* ==========================================================================
+   TAB PANELS
+   ========================================================================== */
+
+.pv-tab-panel {
+  display: none;
+  animation: pv-fadeIn var(--pv-transition-slow) ease;
+}
+
+.pv-tab-panel.pv-active {
+  display: block;
+}
+
+@keyframes pv-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   FORM FIELDS — FLOATING LABELS
+   ========================================================================== */
+
+.pv-field {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.pv-field-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.pv-field-half {
+  flex: 1;
+}
+
+.pv-input {
+  width: 100%;
+  height: 52px;
+  padding: 22px 14px 8px;
+  border: 1.5px solid var(--pv-border);
+  border-radius: var(--pv-radius);
+  background: var(--pv-bg-input);
+  color: var(--pv-text);
+  font-family: var(--pv-font);
+  font-size: 15px;
+  line-height: 1.4;
+  transition: border-color var(--pv-transition), box-shadow var(--pv-transition);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.pv-input::placeholder {
+  color: transparent;
+}
+
+.pv-input:focus {
+  border-color: var(--pv-border-focus);
+  box-shadow: 0 0 0 3px var(--pv-primary-ring);
+}
+
+/* Floating label */
+.pv-label {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--pv-text-muted);
+  font-size: 15px;
+  font-weight: 400;
+  pointer-events: none;
+  transition: all var(--pv-transition) ease;
+  transform-origin: left center;
+}
+
+/* Label floats up when input is focused or has content */
+.pv-input:focus + .pv-label,
+.pv-input:not(:placeholder-shown) + .pv-label {
+  top: 12px;
+  transform: translateY(0);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--pv-primary);
+  letter-spacing: 0.02em;
+}
+
+.pv-input:not(:focus):not(:placeholder-shown) + .pv-label {
+  color: var(--pv-text-muted);
+}
+
+/* Select fields */
+.pv-select {
+  padding-right: 36px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23516F90' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+}
+
+.pv-label-select {
+  top: 12px;
+  transform: translateY(0);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Phone number field with prefix */
+.pv-field-phone {
+  display: flex;
+  align-items: stretch;
+}
+
+.pv-phone-prefix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  background: var(--pv-bg-secondary);
+  border: 1.5px solid var(--pv-border);
+  border-right: none;
+  border-radius: var(--pv-radius) 0 0 var(--pv-radius);
+  color: var(--pv-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+.pv-input-phone {
+  border-radius: 0 var(--pv-radius) var(--pv-radius) 0;
+}
+
+.pv-label-phone {
+  left: 76px;
+}
+
+.pv-input-phone:focus + .pv-label-phone,
+.pv-input-phone:not(:placeholder-shown) + .pv-label-phone {
+  left: 76px;
+}
+
+/* Card number field — extra padding for brand icon */
+.pv-field-card-number .pv-input {
+  padding-right: 56px;
+}
+
+/* Card brand icon */
+.pv-card-brand {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--pv-transition);
+}
+
+.pv-card-brand.pv-brand-visible {
+  opacity: 1;
+}
+
+.pv-card-brand-svg {
+  width: 36px;
+  height: 24px;
+  border-radius: 3px;
+}
+
+/* ==========================================================================
+   FIELD ERROR STATE
+   ========================================================================== */
+
+.pv-field-error .pv-input {
+  border-color: var(--pv-error);
+  box-shadow: 0 0 0 3px rgba(223, 27, 65, 0.15);
+}
+
+.pv-field-error .pv-label {
+  color: var(--pv-error) !important;
+}
+
+/* Shake animation */
+@keyframes pv-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.pv-shake {
+  animation: pv-shake 0.5s ease-in-out;
+}
+
+/* ==========================================================================
+   ERROR BOX
+   ========================================================================== */
+
+.pv-error-box {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--pv-error-bg);
+  border: 1px solid var(--pv-error);
+  border-radius: var(--pv-radius);
+  color: var(--pv-error);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity var(--pv-transition), transform var(--pv-transition);
+}
+
+.pv-error-box.pv-error-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ==========================================================================
+   PAY BUTTON
+   ========================================================================== */
+
+.pv-pay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  padding: 0 24px;
+  margin-top: 8px;
+  border: none;
+  border-radius: var(--pv-radius);
+  background: var(--pv-primary);
+  color: #FFFFFF;
+  font-family: var(--pv-font);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: background var(--pv-transition), transform var(--pv-transition-fast), opacity var(--pv-transition);
+}
+
+.pv-pay-btn:hover {
+  background: var(--pv-primary-hover);
+}
+
+.pv-pay-btn:active {
+  transform: scale(0.98);
+}
+
+.pv-pay-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pv-pay-btn:focus-visible {
+  outline: 2px solid var(--pv-primary);
+  outline-offset: 2px;
+}
+
+/* Loading state */
+.pv-pay-btn.pv-loading .pv-pay-text {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.pv-pay-btn.pv-loading .pv-spinner {
+  opacity: 1;
+}
+
+.pv-pay-text {
+  transition: opacity var(--pv-transition), transform var(--pv-transition);
+}
+
+/* ==========================================================================
+   LOADING SPINNER (CSS-only)
+   ========================================================================== */
+
+.pv-spinner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity var(--pv-transition);
+  animation: pv-spin 0.7s linear infinite;
+}
+
+@keyframes pv-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   SUCCESS OVERLAY
+   ========================================================================== */
+
+.pv-success-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--pv-bg);
+  z-index: 10;
+  opacity: 0;
+  transition: opacity var(--pv-transition-slow);
+}
+
+.pv-success-overlay.pv-success-animate {
+  opacity: 1;
+}
+
+.pv-success-icon {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 20px;
+}
+
+/* Animated checkmark */
+.pv-checkmark {
+  width: 72px;
+  height: 72px;
+}
+
+.pv-checkmark-circle {
+  stroke: var(--pv-success);
+  stroke-width: 2;
+  stroke-dasharray: 157;
+  stroke-dashoffset: 157;
+  fill: var(--pv-success-bg);
+  animation: pv-circle 0.5s ease-in-out 0.1s forwards;
+}
+
+.pv-checkmark-check {
+  stroke: var(--pv-success);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: pv-check 0.35s ease-in-out 0.5s forwards;
+}
+
+@keyframes pv-circle {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pv-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.pv-success-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--pv-text);
+  margin-bottom: 4px;
+}
+
+.pv-success-subtext {
+  font-size: 14px;
+  color: var(--pv-text-muted);
+}
+
+/* ==========================================================================
+   BANK TRANSFER PANEL
+   ========================================================================== */
+
+.pv-transfer-info {
+  text-align: center;
+}
+
+.pv-transfer-instruction {
+  font-size: 14px;
+  color: var(--pv-text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.pv-transfer-instruction strong {
+  color: var(--pv-text);
+  font-weight: 600;
+}
+
+.pv-transfer-details {
+  background: var(--pv-bg-secondary);
+  border: 1px solid var(--pv-border);
+  border-radius: var(--pv-radius);
+  padding: 4px 0;
+  margin-bottom: 16px;
+}
+
+.pv-transfer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
+
+.pv-transfer-row:not(:last-child) {
+  border-bottom: 1px solid var(--pv-border);
+}
+
+.pv-transfer-label {
+  font-size: 13px;
+  color: var(--pv-text-muted);
+}
+
+.pv-transfer-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pv-text);
+}
+
+.pv-account-number {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-transfer-account-row {
+  gap: 8px;
+}
+
+.pv-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--pv-border);
+  border-radius: 6px;
+  background: var(--pv-bg);
+  color: var(--pv-text-secondary);
+  font-family: var(--pv-font);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--pv-transition), border-color var(--pv-transition), color var(--pv-transition);
+  flex-shrink: 0;
+}
+
+.pv-copy-btn:hover {
+  background: var(--pv-bg-secondary);
+  border-color: var(--pv-primary);
+  color: var(--pv-primary);
+}
+
+.pv-copy-btn.pv-copied {
+  background: var(--pv-success-bg);
+  border-color: var(--pv-success);
+  color: var(--pv-success);
+}
+
+.pv-copy-btn:focus-visible {
+  outline: 2px solid var(--pv-primary);
+  outline-offset: 2px;
+}
+
+/* Timer */
+.pv-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--pv-text-muted);
+  margin-bottom: 16px;
+}
+
+.pv-timer strong {
+  color: var(--pv-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   USSD PANEL
+   ========================================================================== */
+
+.pv-ussd-info {
+  text-align: center;
+}
+
+.pv-ussd-code-box {
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--pv-bg-secondary);
+  border: 1px solid var(--pv-border);
+  border-radius: var(--pv-radius);
+}
+
+.pv-ussd-instruction {
+  font-size: 13px;
+  color: var(--pv-text-muted);
+  margin-bottom: 8px;
+}
+
+.pv-ussd-code {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--pv-text);
+  letter-spacing: 0.02em;
+  margin-bottom: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-copy-ussd {
+  margin: 0 auto;
+}
+
+/* ==========================================================================
+   MOBILE MONEY PANEL
+   ========================================================================== */
+
+.pv-momo-info {
+  text-align: left;
+}
+
+.pv-momo-network {
+  margin: -12px 0 16px;
+  text-align: left;
+}
+
+.pv-network-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  background: var(--pv-primary-light);
+  color: var(--pv-primary);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 100px;
+}
+
+/* ==========================================================================
+   FOOTER
+   ========================================================================== */
+
+.pv-footer {
+  padding: 12px 24px 16px;
+  text-align: center;
+  flex-shrink: 0;
+  border-top: 1px solid var(--pv-border);
+}
+
+.pv-secured {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--pv-text-muted);
+}
+
+.pv-secured strong {
+  font-weight: 600;
+  color: var(--pv-text-secondary);
+}
+
+.pv-secured svg {
+  opacity: 0.6;
+}
+
+/* ==========================================================================
+   ACCESSIBILITY — FOCUS RING
+   ========================================================================== */
+
+.pv-checkout *:focus-visible {
+  outline: 2px solid var(--pv-primary);
+  outline-offset: 2px;
+}
+
+/* Hide default focus for mouse users */
+.pv-checkout *:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ==========================================================================
+   REDUCED MOTION
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-checkout,
+  .pv-checkout *,
+  .pv-checkout *::before,
+  .pv-checkout *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   SCROLLBAR (for content area)
+   ========================================================================== */
+
+.pv-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pv-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pv-content::-webkit-scrollbar-thumb {
+  background: var(--pv-border);
+  border-radius: 3px;
+}
+
+.pv-content::-webkit-scrollbar-thumb:hover {
+  background: var(--pv-text-muted);
+}
+
+/* ==========================================================================
+   PRINT — HIDE CHECKOUT
+   ========================================================================== */
+
+@media print {
+  .pv-checkout {
+    display: none !important;
+  }
+}
