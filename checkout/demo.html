@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PayVault Checkout Demo</title>
+
+  <!-- PayVault Checkout assets -->
+  <link rel="stylesheet" href="payvault-checkout.css" />
+
+  <style>
+    /* ====================================================================
+       DEMO PAGE STYLES
+       Beautiful standalone page to showcase the checkout widget.
+       ==================================================================== */
+
+    :root {
+      --demo-bg-start: #0F0C29;
+      --demo-bg-mid: #302B63;
+      --demo-bg-end: #24243E;
+      --demo-surface: #FFFFFF;
+      --demo-surface-secondary: #F7F9FC;
+      --demo-text: #0A2540;
+      --demo-text-secondary: #516F90;
+      --demo-text-muted: #8898AA;
+      --demo-primary: #635BFF;
+      --demo-primary-hover: #5046E4;
+      --demo-border: #E3E8EE;
+      --demo-code-bg: #1E1E3F;
+      --demo-code-text: #E0E0FF;
+      --demo-radius: 16px;
+      --demo-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    }
+
+    [data-page-theme="dark"] {
+      --demo-bg-start: #0A0A1A;
+      --demo-bg-mid: #12122A;
+      --demo-bg-end: #0A0A1A;
+      --demo-surface: #1A1A2E;
+      --demo-surface-secondary: #16162A;
+      --demo-text: #E8E8F0;
+      --demo-text-secondary: #A0A0B8;
+      --demo-text-muted: #6B6B82;
+      --demo-primary: #7C6BFF;
+      --demo-primary-hover: #8F80FF;
+      --demo-border: #2E2E4A;
+      --demo-code-bg: #0D0D1F;
+      --demo-code-text: #C8C8E8;
+      --demo-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--demo-bg-start), var(--demo-bg-mid), var(--demo-bg-end));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 60px;
+      color: var(--demo-text);
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.4s ease;
+    }
+
+    /* ---- Theme Toggle ---- */
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #FFFFFF;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+
+    .theme-toggle:hover {
+      background: rgba(255,255,255,0.2);
+      border-color: rgba(255,255,255,0.4);
+    }
+
+    .theme-toggle:active {
+      transform: scale(0.92);
+    }
+
+    .theme-toggle .icon-sun,
+    .theme-toggle .icon-moon { display: none; }
+    [data-page-theme="light"] .theme-toggle .icon-moon { display: block; }
+    [data-page-theme="dark"] .theme-toggle .icon-sun { display: block; }
+
+    /* ---- Badge ---- */
+    .demo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 100px;
+      color: rgba(255,255,255,0.8);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      backdrop-filter: blur(4px);
+    }
+
+    .demo-badge::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: #4ADE80;
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ---- Page Title ---- */
+    .demo-title {
+      font-size: 40px;
+      font-weight: 800;
+      color: #FFFFFF;
+      text-align: center;
+      margin-bottom: 8px;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    .demo-subtitle {
+      font-size: 16px;
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+      margin-bottom: 48px;
+      max-width: 440px;
+      line-height: 1.6;
+    }
+
+    /* ---- Product Card ---- */
+    .product-card {
+      background: var(--demo-surface);
+      border-radius: var(--demo-radius);
+      box-shadow: var(--demo-shadow);
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      margin-bottom: 24px;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+
+    .product-icon {
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, #635BFF, #8B5CF6);
+      border-radius: 20px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 24px rgba(99, 91, 255, 0.3);
+    }
+
+    .product-icon svg {
+      width: 36px;
+      height: 36px;
+    }
+
+    .product-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--demo-text);
+      margin-bottom: 4px;
+      letter-spacing: -0.01em;
+    }
+
+    .product-description {
+      font-size: 14px;
+      color: var(--demo-text-secondary);
+      margin-bottom: 4px;
+      line-height: 1.5;
+    }
+
+    .product-features {
+      list-style: none;
+      padding: 0;
+      margin: 16px 0 24px;
+      text-align: left;
+    }
+
+    .product-features li {
+      padding: 6px 0;
+      font-size: 14px;
+      color: var(--demo-text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .product-features li::before {
+      content: '';
+      width: 20px;
+      height: 20px;
+      background: rgba(99, 91, 255, 0.1);
+      border-radius: 50%;
+      flex-shrink: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23635BFF' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+      background-size: 12px;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    .product-price {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--demo-text);
+      margin-bottom: 2px;
+      letter-spacing: -0.02em;
+    }
+
+    .product-price-period {
+      font-size: 14px;
+      color: var(--demo-text-muted);
+      font-weight: 400;
+      margin-bottom: 20px;
+    }
+
+    .product-divider {
+      height: 1px;
+      background: var(--demo-border);
+      margin: 20px 0;
+    }
+
+    /* ---- CTA Buttons ---- */
+    .btn-primary {
+      display: block;
+      width: 100%;
+      height: 48px;
+      border: none;
+      border-radius: 10px;
+      background: var(--demo-primary);
+      color: #FFFFFF;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+      margin-bottom: 10px;
+    }
+
+    .btn-primary:hover {
+      background: var(--demo-primary-hover);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      display: block;
+      width: 100%;
+      height: 48px;
+      border: 1.5px solid var(--demo-border);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--demo-text-secondary);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+    }
+
+    .btn-secondary:hover {
+      background: var(--demo-surface-secondary);
+      border-color: var(--demo-primary);
+      color: var(--demo-primary);
+    }
+
+    .btn-secondary:active {
+      transform: scale(0.98);
+    }
+
+    /* ---- Integration Code Block ---- */
+    .code-section {
+      width: 100%;
+      max-width: 640px;
+      margin-top: 48px;
+    }
+
+    .code-section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #FFFFFF;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .code-section-subtitle {
+      font-size: 14px;
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .code-block {
+      background: var(--demo-code-bg);
+      border-radius: var(--demo-radius);
+      overflow: hidden;
+      box-shadow: var(--demo-shadow);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: rgba(0,0,0,0.2);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .code-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .code-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .code-dots span:nth-child(1) { background: #FF5F57; }
+    .code-dots span:nth-child(2) { background: #FFBD2E; }
+    .code-dots span:nth-child(3) { background: #28C840; }
+
+    .code-filename {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+    }
+
+    .code-copy {
+      padding: 4px 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255,255,255,0.5);
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .code-copy:hover {
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.8);
+    }
+
+    pre {
+      padding: 20px;
+      overflow-x: auto;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--demo-code-text);
+      tab-size: 2;
+      -moz-tab-size: 2;
+    }
+
+    /* Syntax highlighting */
+    .hl-keyword  { color: #C792EA; }
+    .hl-string   { color: #C3E88D; }
+    .hl-number   { color: #F78C6C; }
+    .hl-comment  { color: #546E7A; font-style: italic; }
+    .hl-function { color: #82AAFF; }
+    .hl-property { color: #FFCB6B; }
+    .hl-tag      { color: #F07178; }
+    .hl-attr     { color: #C792EA; }
+    .hl-value    { color: #C3E88D; }
+    .hl-punctuation { color: #89DDFF; }
+
+    /* ---- Footer ---- */
+    .demo-footer {
+      margin-top: 48px;
+      text-align: center;
+      color: rgba(255,255,255,0.3);
+      font-size: 13px;
+    }
+
+    .demo-footer a {
+      color: rgba(255,255,255,0.5);
+      text-decoration: none;
+    }
+
+    .demo-footer a:hover {
+      color: rgba(255,255,255,0.8);
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 480px) {
+      body {
+        padding: 24px 16px 40px;
+      }
+
+      .demo-title {
+        font-size: 28px;
+      }
+
+      .demo-subtitle {
+        font-size: 14px;
+        margin-bottom: 32px;
+      }
+
+      .product-card {
+        padding: 24px;
+      }
+
+      pre {
+        font-size: 11px;
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+
+<body data-page-theme="light">
+
+  <!-- Theme Toggle Button -->
+  <button class="theme-toggle" onclick="togglePageTheme()" aria-label="Toggle theme">
+    <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+    </svg>
+    <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/>
+      <line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  </button>
+
+  <!-- Badge -->
+  <div class="demo-badge">Live Demo</div>
+
+  <!-- Title -->
+  <h1 class="demo-title">PayVault Checkout</h1>
+  <p class="demo-subtitle">
+    A beautiful, embeddable payment widget for African payments.
+    Paystack + Flutterwave. Zero dependencies.
+  </p>
+
+  <!-- Product Card -->
+  <div class="product-card">
+    <div class="product-icon">
+      <svg viewBox="0 0 36 36" fill="none">
+        <path d="M8 14C8 14 12 8 18 8C24 8 28 14 28 14" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="18" cy="20" r="4" stroke="white" stroke-width="2.5"/>
+        <path d="M10 26C10 26 13 22 18 22C23 22 26 26 26 26" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <h2 class="product-name">AudioByte Premium</h2>
+    <p class="product-description">AI-powered audio learning for students</p>
+
+    <ul class="product-features">
+      <li>Unlimited AI-generated audio lessons</li>
+      <li>Offline downloads for all courses</li>
+      <li>Personalized learning paths</li>
+      <li>Priority support</li>
+    </ul>
+
+    <div class="product-divider"></div>
+
+    <div class="product-price">&#8358;5,000</div>
+    <div class="product-price-period">per month</div>
+
+    <!-- 
+      =======================================================
+      INTEGRATION EXAMPLE 1: All payment methods
+      Opens checkout with card, bank transfer, USSD & mobile money
+      =======================================================
+    -->
+    <button class="btn-primary" onclick="openCheckoutFull()">
+      Subscribe Now
+    </button>
+
+    <!--
+      =======================================================
+      INTEGRATION EXAMPLE 2: Card-only
+      Opens checkout with only the card payment method
+      =======================================================
+    -->
+    <button class="btn-secondary" onclick="openCheckoutCardOnly()">
+      Pay with Card Only
+    </button>
+  </div>
+
+  <!-- Integration Code -->
+  <div class="code-section">
+    <h3 class="code-section-title">Integration</h3>
+    <p class="code-section-subtitle">Add PayVault Checkout to your site in under 5 minutes</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <span class="code-filename">index.html</span>
+        <button class="code-copy" onclick="copyCode()">Copy</button>
+      </div>
+      <pre id="integration-code"><span class="hl-comment">&lt;!-- 1. Include the checkout script --&gt;</span>
+<span class="hl-punctuation">&lt;</span><span class="hl-tag">script</span> <span class="hl-attr">src</span><span class="hl-punctuation">=</span><span class="hl-value">"https://cdn.payvault.co/checkout/v1/payvault-checkout.js"</span><span class="hl-punctuation">&gt;&lt;/</span><span class="hl-tag">script</span><span class="hl-punctuation">&gt;</span>
+
+<span class="hl-comment">&lt;!-- 2. Add a pay button --&gt;</span>
+<span class="hl-punctuation">&lt;</span><span class="hl-tag">button</span> <span class="hl-attr">onclick</span><span class="hl-punctuation">=</span><span class="hl-value">"payWithPayVault()"</span><span class="hl-punctuation">&gt;</span>Pay Now<span class="hl-punctuation">&lt;/</span><span class="hl-tag">button</span><span class="hl-punctuation">&gt;</span>
+
+<span class="hl-comment">&lt;!-- 3. Configure and open --&gt;</span>
+<span class="hl-punctuation">&lt;</span><span class="hl-tag">script</span><span class="hl-punctuation">&gt;</span>
+<span class="hl-keyword">function</span> <span class="hl-function">payWithPayVault</span>() {
+  PayVaultCheckout.<span class="hl-function">open</span>({
+    <span class="hl-property">publicKey</span>: <span class="hl-string">'pk_live_your_key_here'</span>,
+    <span class="hl-property">amount</span>:    <span class="hl-number">5000</span>,
+    <span class="hl-property">currency</span>:  <span class="hl-string">'NGN'</span>,
+    <span class="hl-property">email</span>:     <span class="hl-string">'customer@example.com'</span>,
+
+    <span class="hl-comment">// Optional: limit payment methods</span>
+    <span class="hl-property">channels</span>:  [<span class="hl-string">'card'</span>, <span class="hl-string">'bank_transfer'</span>, <span class="hl-string">'ussd'</span>],
+
+    <span class="hl-comment">// Lifecycle callbacks</span>
+    <span class="hl-property">onSuccess</span>: <span class="hl-keyword">function</span>(response) {
+      console.<span class="hl-function">log</span>(<span class="hl-string">'Payment successful!'</span>, response);
+      <span class="hl-comment">// Verify on your server, then grant access</span>
+    },
+    <span class="hl-property">onClose</span>: <span class="hl-keyword">function</span>() {
+      console.<span class="hl-function">log</span>(<span class="hl-string">'Checkout closed'</span>);
+    },
+    <span class="hl-property">onError</span>: <span class="hl-keyword">function</span>(err) {
+      console.<span class="hl-function">error</span>(<span class="hl-string">'Payment error:'</span>, err);
+    }
+  });
+}
+<span class="hl-punctuation">&lt;/</span><span class="hl-tag">script</span><span class="hl-punctuation">&gt;</span></pre>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="demo-footer">
+    <p>PayVault Checkout v1.0.0 &middot; Built for African payments</p>
+  </footer>
+
+  <!-- PayVault Checkout Script -->
+  <script src="payvault-checkout.js"></script>
+
+  <script>
+    // =========================================================================
+    // MOCK API ENDPOINT
+    // In production, this would be your server endpoint that calls
+    // Paystack/Flutterwave APIs via the PayVault SDK.
+    // Here we intercept fetch to simulate a 2-second server response.
+    // =========================================================================
+
+    (function () {
+      var originalFetch = window.fetch;
+
+      window.fetch = function (url, options) {
+        // Intercept calls to our mock API endpoint
+        if (url === '/api/pay') {
+          return new Promise(function (resolve) {
+            // Simulate network + processing delay
+            setTimeout(function () {
+              var body = JSON.parse(options.body);
+              console.log('[Mock API] Received payment request:', body);
+
+              // Simulate a successful direct charge response
+              resolve({
+                ok: true,
+                json: function () {
+                  return Promise.resolve({
+                    success: true,
+                    status: 'success',
+                    message: 'Payment processed successfully',
+                    data: {
+                      reference: body.reference,
+                      amount: body.amount,
+                      currency: body.currency,
+                      channel: body.channel,
+                      paidAt: new Date().toISOString(),
+                      transactionId: 'txn_' + Math.random().toString(36).substr(2, 12),
+                    }
+                  });
+                }
+              });
+            }, 2000); // 2 second delay to show loading state
+          });
+        }
+
+        // Pass through all other fetch calls
+        return originalFetch.apply(this, arguments);
+      };
+    })();
+
+    // =========================================================================
+    // CHECKOUT CONFIGURATIONS
+    // =========================================================================
+
+    /** Current theme for the checkout widget */
+    var checkoutTheme = 'light';
+
+    /**
+     * Open checkout with ALL payment methods.
+     * This is the default configuration most merchants would use.
+     */
+    function openCheckoutFull() {
+      PayVaultCheckout.open({
+        publicKey: 'pk_test_demo_key_12345',
+        amount: 5000,
+        currency: 'NGN',
+        email: 'student@university.edu.ng',
+        customerName: 'Adaeze Okonkwo',
+        reference: 'aud_' + Date.now(),
+        theme: checkoutTheme,
+
+        // All supported payment channels
+        channels: ['card', 'bank_transfer', 'ussd', 'mobile_money'],
+
+        // Custom metadata (passed through to your webhook)
+        metadata: {
+          plan: 'premium',
+          period: 'monthly',
+          source: 'demo_page',
+        },
+
+        // Lifecycle callbacks
+        onSuccess: function (response) {
+          console.log('Payment successful!', response);
+          showNotification('Payment of \u20A65,000.00 was successful!', 'success');
+        },
+        onClose: function () {
+          console.log('Checkout was closed by user.');
+        },
+        onError: function (error) {
+          console.error('Payment error:', error);
+          showNotification('Payment failed: ' + error.message, 'error');
+        },
+      });
+    }
+
+    /**
+     * Open checkout with CARD ONLY.
+     * Some merchants prefer to restrict payment methods.
+     */
+    function openCheckoutCardOnly() {
+      PayVaultCheckout.open({
+        publicKey: 'pk_test_demo_key_12345',
+        amount: 5000,
+        currency: 'NGN',
+        email: 'student@university.edu.ng',
+        customerName: 'Adaeze Okonkwo',
+        reference: 'aud_card_' + Date.now(),
+        theme: checkoutTheme,
+
+        // Card only
+        channels: ['card'],
+
+        metadata: {
+          plan: 'premium',
+          period: 'monthly',
+          source: 'demo_page',
+          method: 'card_only',
+        },
+
+        onSuccess: function (response) {
+          console.log('Card payment successful!', response);
+          showNotification('Card payment of \u20A65,000.00 was successful!', 'success');
+        },
+        onClose: function () {
+          console.log('Card checkout closed.');
+        },
+        onError: function (error) {
+          console.error('Card payment error:', error);
+          showNotification('Card payment failed: ' + error.message, 'error');
+        },
+      });
+    }
+
+    // =========================================================================
+    // THEME TOGGLE
+    // =========================================================================
+
+    function togglePageTheme() {
+      var body = document.body;
+      var current = body.getAttribute('data-page-theme');
+      var next = current === 'dark' ? 'light' : 'dark';
+      body.setAttribute('data-page-theme', next);
+      checkoutTheme = next;
+    }
+
+    // =========================================================================
+    // NOTIFICATION HELPER (shows result after payment)
+    // =========================================================================
+
+    function showNotification(message, type) {
+      // Remove existing
+      var existing = document.querySelector('.demo-notification');
+      if (existing) existing.remove();
+
+      var notif = document.createElement('div');
+      notif.className = 'demo-notification';
+      notif.style.cssText = [
+        'position: fixed',
+        'bottom: 24px',
+        'left: 50%',
+        'transform: translateX(-50%) translateY(20px)',
+        'padding: 14px 24px',
+        'border-radius: 12px',
+        'font-family: -apple-system, BlinkMacSystemFont, sans-serif',
+        'font-size: 14px',
+        'font-weight: 600',
+        'z-index: 999998',
+        'opacity: 0',
+        'transition: opacity 0.3s, transform 0.3s',
+        'box-shadow: 0 8px 32px rgba(0,0,0,0.2)',
+        'max-width: 90vw',
+        type === 'success'
+          ? 'background: #0D7C41; color: #FFFFFF;'
+          : 'background: #DF1B41; color: #FFFFFF;',
+      ].join('; ');
+      notif.textContent = message;
+      document.body.appendChild(notif);
+
+      // Animate in
+      requestAnimationFrame(function () {
+        notif.style.opacity = '1';
+        notif.style.transform = 'translateX(-50%) translateY(0)';
+      });
+
+      // Auto-remove
+      setTimeout(function () {
+        notif.style.opacity = '0';
+        notif.style.transform = 'translateX(-50%) translateY(20px)';
+        setTimeout(function () { notif.remove(); }, 300);
+      }, 4000);
+    }
+
+    // =========================================================================
+    // CODE COPY HELPER
+    // =========================================================================
+
+    function copyCode() {
+      var codeEl = document.getElementById('integration-code');
+      var text = codeEl.textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var btn = document.querySelector('.code-copy');
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+  </script>
+
+</body>
+</html>
