@@ -36,7 +36,7 @@ func NewRedisClient(redisURL string) *redis.Client {
 	return client
 }
 
-// ── Queue Keys ───────────────────────────────────────────────────
+// ── Queue Keys ───────────────────────────────────────────────────────
 const (
 	QueueWebhookForward = "payvault:queue:webhook_forward" // Webhook forwarding jobs
 	QueueWebhookRetry   = "payvault:queue:webhook_retry"   // Failed webhooks for retry
@@ -66,7 +66,7 @@ func Dequeue(ctx context.Context, client *redis.Client, queueKey string, timeout
 	return result[1], nil // result[0] is the key name
 }
 
-// ── Worker Pool ──────────────────────────────────────────────────
+// ── Worker Pool ──────────────────────────────────────────────────────
 
 // WorkerPool processes background jobs from Redis queues.
 type WorkerPool struct {
