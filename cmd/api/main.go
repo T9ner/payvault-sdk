@@ -26,7 +26,7 @@ func main() {
 
 	cfg := config.Load()
 
-	// ── Database ────────────────────────────────────────────────
+	// ── Database ────────────────────────────────────────────────────────
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
@@ -41,20 +41,20 @@ func main() {
 	}
 	log.Println("migrations applied")
 
-	// ── Redis / Queue ───────────────────────────────────────────
+	// ── Redis / Queue ───────────────────────────────────────────────────
 	redisClient := queue.NewRedisClient(cfg.RedisURL)
 	defer redisClient.Close()
 
 	log.Println("redis connected")
 
-	// ── Worker Pool ─────────────────────────────────────────────
+	// ── Worker Pool ─────────────────────────────────────────────────────
 	workerPool := queue.NewWorkerPool(redisClient, db, cfg)
 	go workerPool.Start(context.Background())
 	defer workerPool.Stop()
 
 	log.Println("worker pool started")
 
-	// ── Services ────────────────────────────────────────────────
+	// ── Services ────────────────────────────────────────────────────────
 
 	// Crypto service for encrypting/decrypting provider keys
 	cryptoSvc := services.NewCryptoService(cfg.EncryptionKey)
@@ -78,7 +78,7 @@ func main() {
 
 	log.Println("services initialized")
 
-	// ── HTTP Server ─────────────────────────────────────────────
+	// ── HTTP Server ─────────────────────────────────────────────────────
 	router := api.NewRouter(authSvc, txnSvc, providers, cryptoSvc, rateLimiter)
 
 	srv := &http.Server{
@@ -89,7 +89,7 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// ── Graceful Shutdown ───────────────────────────────────────
+	// ── Graceful Shutdown ───────────────────────────────────────────────
 	go func() {
 		log.Printf("PayVault API v0.1.0 starting on port %s", cfg.Port)
 		log.Printf("Providers: %v", providers.List())
