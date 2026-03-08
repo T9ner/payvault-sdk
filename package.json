@@ -1,0 +1,59 @@
+{
+  "name": "payvault-sdk",
+  "version": "0.1.0",
+  "description": "Unified payment SDK for African markets. One API for Paystack + Flutterwave -- backend TypeScript SDK + embeddable checkout widget.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./checkout": "./checkout/payvault-checkout.js",
+    "./checkout/styles": "./checkout/payvault-checkout.css"
+  },
+  "files": [
+    "dist",
+    "checkout/payvault-checkout.js",
+    "checkout/payvault-checkout.css",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "payments",
+    "paystack",
+    "flutterwave",
+    "africa",
+    "fintech",
+    "checkout",
+    "nigeria",
+    "ghana",
+    "kenya",
+    "sdk"
+  ],
+  "author": "T9ner",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/T9ner/payvault-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/T9ner/payvault-sdk/issues"
+  },
+  "homepage": "https://github.com/T9ner/payvault-sdk#readme",
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
