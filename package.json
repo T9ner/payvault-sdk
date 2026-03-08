@@ -21,7 +21,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean --external crypto",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build",
@@ -50,6 +50,7 @@
   },
   "homepage": "https://github.com/T9ner/payvault-sdk#readme",
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0"
   },
