@@ -4,7 +4,7 @@
 
 ### One API. Every African payment provider.
 
-[![npm version](https://img.shields.io/npm/v/payvault.svg?style=flat-square)](https://www.npmjs.com/package/payvault)
+[![npm version](https://img.shields.io/npm/v/payvault.svg?style=flat-square)](https://www.npmjs.com/package/payvault-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
