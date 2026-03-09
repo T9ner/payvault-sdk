@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   DollarSign,
   ArrowLeftRight,
@@ -90,8 +90,14 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [links, setLinks] = useState<PaymentLink[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
+    // Guard: only fetch once. Prevents the constant re-fetching bug
+    // caused by React re-renders (layout auth check, strict mode, etc.)
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     async function load() {
       try {
         const [txns, payLinks] = await Promise.allSettled([
