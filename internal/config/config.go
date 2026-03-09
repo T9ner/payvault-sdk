@@ -5,7 +5,7 @@ import "os"
 type Config struct {
 	// Server
 	Port        string
-	Environment string // "development", "staging", "production"
+	Environment string
 
 	// Database
 	DatabaseURL string
@@ -15,15 +15,18 @@ type Config struct {
 
 	// Auth
 	JWTSecret     string
-	EncryptionKey string // 32-byte hex key for AES-256 encryption of provider secrets
+	EncryptionKey string
 
 	// Rate Limiting
-	RateLimitRPS   int // Requests per second per API key
+	RateLimitRPS   int
 	RateLimitBurst int
 
 	// Webhook Relay
 	WebhookMaxRetries int
 	WebhookTimeoutSec int
+
+	// Payment Links
+	CheckoutBaseURL string // e.g., "https://pay.payvault.co" or "http://localhost:8080/api/v1/checkout"
 }
 
 func Load() *Config {
@@ -42,6 +45,8 @@ func Load() *Config {
 
 		WebhookMaxRetries: getEnvInt("WEBHOOK_MAX_RETRIES", 5),
 		WebhookTimeoutSec: getEnvInt("WEBHOOK_TIMEOUT_SEC", 30),
+
+		CheckoutBaseURL: getEnv("CHECKOUT_BASE_URL", "http://localhost:8080/api/v1/checkout"),
 	}
 }
 
