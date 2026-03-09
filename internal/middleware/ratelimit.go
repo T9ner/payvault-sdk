@@ -25,12 +25,12 @@ func NewRateLimiter(redisClient *redis.Client, rps, burst int) *RateLimiter {
 func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		merchantID := GetMerchantID(r.Context())
-		if merchantID.String() == "00000000-0000-0000-0000-000000000000" {
+		if merchantID == "" {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		key := fmt.Sprintf("payvault:ratelimit:%s", merchantID.String())
+		key := fmt.Sprintf("payvault:ratelimit:%s", merchantID)
 		allowed, err := checkRateLimit(r.Context(), rl.redis, key, rl.rps, rl.burst)
 		if err != nil {
 			// If Redis is down, allow the request (fail open)
