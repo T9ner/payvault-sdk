@@ -1,4 +1,4 @@
-module github.com/T9ner/payvault-api
+module payvault-api
 
 go 1.22
 
