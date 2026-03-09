@@ -8,6 +8,8 @@ import (
 
 	"payvault-api/internal/middleware"
 	"payvault-api/internal/services"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // Handlers holds all HTTP handler dependencies.
@@ -16,14 +18,31 @@ type Handlers struct {
 	transaction *services.TransactionService
 	providers   *services.ProviderRegistry
 	crypto      *services.CryptoService
+	links       *services.PaymentLinkService
+	subs        *services.SubscriptionService
+	fraud       *services.FraudService
+	webhookDlv  *services.WebhookDeliveryService
 }
 
-func NewHandlers(auth *services.AuthService, txn *services.TransactionService, providers *services.ProviderRegistry, crypto *services.CryptoService) *Handlers {
+func NewHandlers(
+	auth *services.AuthService,
+	txn *services.TransactionService,
+	providers *services.ProviderRegistry,
+	crypto *services.CryptoService,
+	links *services.PaymentLinkService,
+	subs *services.SubscriptionService,
+	fraud *services.FraudService,
+	webhookDlv *services.WebhookDeliveryService,
+) *Handlers {
 	return &Handlers{
 		auth:        auth,
 		transaction: txn,
 		providers:   providers,
 		crypto:      crypto,
+		links:       links,
+		subs:        subs,
+		fraud:       fraud,
+		webhookDlv:  webhookDlv,
 	}
 }
 
@@ -191,7 +210,7 @@ func (h *Handlers) InitiateCharge(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/payments/verify/{reference}
 func (h *Handlers) VerifyTransaction(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r.Context())
-	reference := r.PathValue("reference")
+	reference := chi.URLParam(r, "reference")
 	if reference == "" {
 		middleware.ErrorResponse(w, http.StatusBadRequest, "reference is required")
 		return
@@ -259,7 +278,257 @@ func (h *Handlers) ListTransactions(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ==================== Webhook Handlers ====================
+// ==================== Payment Link Handlers ====================
+
+// POST /api/v1/dashboard/links
+func (h *Handlers) CreatePaymentLink(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+
+	var input services.CreatePaymentLinkInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if input.Name == "" {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	link, err := h.links.CreateLink(r.Context(), merchantID, input)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusCreated, link)
+}
+
+// GET /api/v1/dashboard/links
+func (h *Handlers) ListPaymentLinks(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+	limit, offset := parsePagination(r)
+
+	links, total, err := h.links.ListLinks(r.Context(), merchantID, limit, offset)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"links":  links,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+// DELETE /api/v1/dashboard/links/{id}
+func (h *Handlers) DeactivatePaymentLink(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+	linkID := chi.URLParam(r, "id")
+
+	if err := h.links.DeactivateLink(r.Context(), merchantID, linkID); err != nil {
+		middleware.ErrorResponse(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{"message": "Payment link deactivated"})
+}
+
+// GET /api/v1/checkout/{slug} (public -- no auth)
+func (h *Handlers) GetCheckoutPage(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+
+	link, err := h.links.GetBySlug(r.Context(), slug)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, link)
+}
+
+// POST /api/v1/checkout/{slug}/pay (public -- no auth)
+func (h *Handlers) CheckoutPay(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+
+	var input services.CheckoutInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if input.Email == "" {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "email is required")
+		return
+	}
+
+	result, err := h.links.Checkout(r.Context(), slug, input)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusCreated, result)
+}
+
+// ==================== Subscription Handlers ====================
+
+// POST /api/v1/dashboard/subscriptions/plans
+func (h *Handlers) CreatePlan(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+
+	var input services.CreatePlanInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if input.Provider == "" || input.Name == "" || input.Amount <= 0 || input.Interval == "" {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "provider, name, amount, and interval are required")
+		return
+	}
+
+	plan, err := h.subs.CreatePlan(r.Context(), merchantID, input)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusCreated, plan)
+}
+
+// POST /api/v1/payments/subscribe
+func (h *Handlers) Subscribe(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+
+	var input services.SubscribeInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if input.Provider == "" || input.PlanCode == "" || input.Email == "" {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "provider, plan_code, and email are required")
+		return
+	}
+
+	result, err := h.subs.Subscribe(r.Context(), merchantID, input)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusCreated, result)
+}
+
+// POST /api/v1/dashboard/subscriptions/{id}/cancel
+func (h *Handlers) CancelSubscription(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+	subID := chi.URLParam(r, "id")
+
+	if err := h.subs.Cancel(r.Context(), merchantID, subID); err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{"message": "Subscription cancelled"})
+}
+
+// GET /api/v1/dashboard/subscriptions
+func (h *Handlers) ListSubscriptions(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+	limit, offset := parsePagination(r)
+
+	subs, total, err := h.subs.ListSubscriptions(r.Context(), merchantID, limit, offset)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"subscriptions": subs,
+		"total":         total,
+		"limit":         limit,
+		"offset":        offset,
+	})
+}
+
+// ==================== Fraud Handlers ====================
+
+// PUT /api/v1/dashboard/fraud/rules
+func (h *Handlers) UpsertFraudRule(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+
+	var input services.UpdateFraudRuleInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if input.RuleName == "" {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "rule_name is required")
+		return
+	}
+
+	if err := h.fraud.UpsertRule(r.Context(), merchantID, input); err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{"message": "Fraud rule updated"})
+}
+
+// GET /api/v1/dashboard/fraud/events
+func (h *Handlers) ListFraudEvents(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+	limit, offset := parsePagination(r)
+
+	events, total, err := h.fraud.ListFraudEvents(r.Context(), merchantID, limit, offset)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"events": events,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+// ==================== Webhook Log Handlers ====================
+
+// GET /api/v1/dashboard/webhooks
+func (h *Handlers) ListWebhookLog(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+	limit, offset := parsePagination(r)
+
+	entries, total, err := h.webhookDlv.ListWebhookLog(r.Context(), merchantID, limit, offset)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"webhooks": entries,
+		"total":    total,
+		"limit":    limit,
+		"offset":   offset,
+	})
+}
+
+// POST /api/v1/dashboard/webhooks/{id}/retry
+func (h *Handlers) RetryWebhook(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+	webhookID := chi.URLParam(r, "id")
+
+	if err := h.webhookDlv.RetryWebhook(r.Context(), merchantID, webhookID); err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{"message": "Webhook retry scheduled"})
+}
+
+// ==================== Provider Webhook Handlers ====================
 
 // POST /api/v1/webhooks/paystack
 func (h *Handlers) PaystackWebhook(w http.ResponseWriter, r *http.Request) {
@@ -314,16 +583,13 @@ func (h *Handlers) handleProviderWebhook(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Note: In production, verify signature against merchant's secret key
-	// For now, we'll verify if a signature is provided
 	if signature != "" {
-		// TODO: Fetch merchant's webhook secret and verify
 		_ = provider // Signature verification would go here
 	}
 
 	// 6. Verify the transaction with the provider (source of truth)
 	_, err = h.transaction.VerifyTransaction(r.Context(), merchantID, reference)
 	if err != nil {
-		// Log error but respond 200 to prevent retries
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -356,6 +622,20 @@ func (h *Handlers) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
 		"status":  "healthy",
 		"service": "payvault-api",
-		"version": "0.1.0",
+		"version": "0.2.0",
 	})
+}
+
+// ==================== Helpers ====================
+
+func parsePagination(r *http.Request) (int, int) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return limit, offset
 }
