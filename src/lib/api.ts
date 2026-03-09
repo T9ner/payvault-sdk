@@ -6,10 +6,8 @@ import type {
   RegisterRequest,
   APIKey,
   ProviderCredentials,
-  Transaction,
   ChargeRequest,
   ChargeResponse,
-  RefundRequest,
   PaymentLink,
   CreatePaymentLinkRequest,
   Plan,
@@ -19,8 +17,6 @@ import type {
   UpsertFraudRuleRequest,
   FraudEvent,
   WebhookLog,
-  TransactionStatusResponse,
-  StatusTransition,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
@@ -134,22 +130,35 @@ export const payments = {
   charge: (data: ChargeRequest) =>
     api.post<ChargeResponse>("/payments/charge", data).then((r) => r.data),
 
-  verify: (reference: string) =>
-    api.get<Transaction>(`/payments/verify/${reference}`).then((r) => r.data),
-
-  refund: (data: RefundRequest) =>
-    api.post("/payments/refund", data).then((r) => r.data),
-
-  listTransactions: (params?: { page?: number; limit?: number; status?: string }) =>
-    api.get<Transaction[]>("/payments/transactions", { params }).then((r) => r.data),
-
-  getStatus: (reference: string) =>
-    api.get<TransactionStatusResponse>(`/payments/status/${reference}`).then((r) => r.data),
-
-  getActivity: (limit?: number) =>
-    api.get<{ transactions: StatusTransition[]; count: number }>("/payments/activity", {
-      params: { limit },
-    }).then((r) => r.data),
+  listTransactions: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }) => {
+    const res = await api.get("/dashboard/transactions", { params });
+    return res.data.transactions;
+  },
+  getActivity: async () => {
+    const res = await api.get("/dashboard/transactions/activity");
+    return res.data.transactions;
+  },
+  verify: async (reference: string) => {
+    const res = await api.get(`/dashboard/transactions/${reference}/verify`);
+    return res.data;
+  },
+  refund: async (data: { reference: string; amount?: number }) => {
+    const res = await api.post("/dashboard/transactions/refund", data);
+    return res.data;
+  },
+  getStatus: async (reference: string) => {
+    const res = await api.get(`/dashboard/transactions/${reference}/status`);
+    return res.data;
+  },
+  getBatchStatus: async (references: string[]) => {
+    // API keys only, rarely used by dashboard itself
+    const res = await api.post("/payments/status/batch", { references });
+    return res.data.statuses;
+  },
 };
 
 export default api;
