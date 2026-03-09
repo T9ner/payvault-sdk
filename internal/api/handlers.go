@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"payvault-api/internal/middleware"
 	"payvault-api/internal/services"
@@ -22,6 +23,7 @@ type Handlers struct {
 	subs        *services.SubscriptionService
 	fraud       *services.FraudService
 	webhookDlv  *services.WebhookDeliveryService
+	status      *services.StatusService
 }
 
 func NewHandlers(
@@ -33,6 +35,7 @@ func NewHandlers(
 	subs *services.SubscriptionService,
 	fraud *services.FraudService,
 	webhookDlv *services.WebhookDeliveryService,
+	status *services.StatusService,
 ) *Handlers {
 	return &Handlers{
 		auth:        auth,
@@ -43,6 +46,7 @@ func NewHandlers(
 		subs:        subs,
 		fraud:       fraud,
 		webhookDlv:  webhookDlv,
+		status:      status,
 	}
 }
 
@@ -613,6 +617,101 @@ func extractReference(event map[string]interface{}, provider string) string {
 	default:
 		return ""
 	}
+}
+
+// ==================== Status Handlers (Webhook-Free DX) ====================
+
+// GET /api/v1/payments/status/{reference}
+func (h *Handlers) GetTransactionStatus(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+	reference := chi.URLParam(r, "reference")
+
+	status, err := h.status.GetStatus(r.Context(), merchantID, reference)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, status)
+}
+
+// GET /api/v1/payments/status/{reference}/wait
+func (h *Handlers) WaitForStatus(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+	reference := chi.URLParam(r, "reference")
+
+	// Parse timeout from query param (default 30s, max 30s)
+	timeoutSec := 30
+	if t := r.URL.Query().Get("timeout"); t != "" {
+		if parsed, err := strconv.Atoi(t); err == nil && parsed > 0 && parsed <= 30 {
+			timeoutSec = parsed
+		}
+	}
+
+	status, timedOut, err := h.status.WaitForStatus(
+		r.Context(), merchantID, reference,
+		time.Duration(timeoutSec)*time.Second,
+	)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"status":    status,
+		"timed_out": timedOut,
+	})
+}
+
+// POST /api/v1/payments/status/batch
+func (h *Handlers) BatchStatus(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+
+	var input struct {
+		References []string `json:"references"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(input.References) == 0 {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "references array is required")
+		return
+	}
+
+	statuses, err := h.status.GetBatchStatus(r.Context(), merchantID, input.References)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"statuses": statuses,
+		"count":    len(statuses),
+	})
+}
+
+// GET /api/v1/payments/activity
+func (h *Handlers) RecentActivity(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+
+	limit := 20
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil {
+			limit = parsed
+		}
+	}
+
+	transitions, err := h.status.RecentTransitions(r.Context(), merchantID, limit)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"transactions": transitions,
+		"count":        len(transitions),
+	})
 }
 
 // ==================== Health Check ====================
