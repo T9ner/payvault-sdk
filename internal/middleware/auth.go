@@ -6,35 +6,9 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 
 	"payvault-api/internal/services"
 )
-
-// Context keys for storing auth info in request context.
-type contextKey string
-
-const (
-	ContextMerchantID  contextKey = "merchant_id"
-	ContextEnvironment contextKey = "environment"
-	ContextIsSecretKey contextKey = "is_secret_key"
-	ContextAuthMethod  contextKey = "auth_method"
-)
-
-// GetMerchantID extracts the merchant ID from the request context.
-func GetMerchantID(ctx context.Context) uuid.UUID {
-	id, _ := ctx.Value(ContextMerchantID).(uuid.UUID)
-	return id
-}
-
-// GetEnvironment extracts the API environment from the request context.
-func GetEnvironment(ctx context.Context) string {
-	env, _ := ctx.Value(ContextEnvironment).(string)
-	if env == "" {
-		return "test"
-	}
-	return env
-}
 
 // AuthMiddleware provides JWT and API-key authentication handlers.
 type AuthMiddleware struct {
@@ -80,9 +54,8 @@ func (am *AuthMiddleware) RequireJWT(next http.Handler) http.Handler {
 			return
 		}
 
-		subStr, _ := claims["sub"].(string)
-		merchantID, err := uuid.Parse(subStr)
-		if err != nil {
+		merchantID, _ := claims["sub"].(string)
+		if merchantID == "" {
 			writeError(w, http.StatusUnauthorized, "invalid merchant ID in token")
 			return
 		}
@@ -121,6 +94,11 @@ func (am *AuthMiddleware) RequireAPIKey(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ContextEnvironment, env)
 		ctx = context.WithValue(ctx, ContextIsSecretKey, isSecret)
 		ctx = context.WithValue(ctx, ContextAuthMethod, "api_key")
+
+		// Set test mode flag for downstream services
+		if env == "test" {
+			ctx = context.WithValue(ctx, contextKey("test_mode"), true)
+		}
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
