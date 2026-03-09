@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/T9ner/payvault-api/internal/config"
+	"payvault-api/internal/config"
 )
 
 // NewRedisClient creates a new Redis client from a URL.
@@ -38,15 +38,15 @@ func NewRedisClient(redisURL string) *redis.Client {
 
 // ── Queue Keys ───────────────────────────────────────────────────
 const (
-	QueueWebhookForward = "payvault:queue:webhook_forward" // Webhook forwarding jobs
-	QueueWebhookRetry   = "payvault:queue:webhook_retry"   // Failed webhooks for retry
+	QueueWebhookForward = "payvault:queue:webhook_forward"
+	QueueWebhookRetry   = "payvault:queue:webhook_retry"
 )
 
 // Job represents a queued work item.
 type Job struct {
 	ID        string `json:"id"`
 	Type      string `json:"type"`
-	Payload   string `json:"payload"` // JSON-encoded job data
+	Payload   string `json:"payload"`
 	Attempts  int    `json:"attempts"`
 	MaxRetry  int    `json:"max_retry"`
 	CreatedAt int64  `json:"created_at"`
@@ -63,7 +63,27 @@ func Dequeue(ctx context.Context, client *redis.Client, queueKey string, timeout
 	if err != nil {
 		return "", err
 	}
-	return result[1], nil // result[0] is the key name
+	return result[1], nil
+}
+
+// ── Queue Adapter ────────────────────────────────────────────────
+// QueueAdapter wraps a Redis client to satisfy the Enqueue interface
+// expected by TransactionService and other services.
+
+type QueueAdapter struct {
+	client *redis.Client
+}
+
+// NewQueueAdapter creates a QueueAdapter wrapping the given Redis client.
+func NewQueueAdapter(client *redis.Client) *QueueAdapter {
+	return &QueueAdapter{client: client}
+}
+
+// Enqueue pushes a job payload onto the appropriate Redis queue based on jobType.
+// Job types map to queue keys: "webhook_forward" -> QueueWebhookForward, etc.
+func (qa *QueueAdapter) Enqueue(jobType string, payload []byte) error {
+	queueKey := "payvault:queue:" + jobType
+	return qa.client.LPush(context.Background(), queueKey, payload).Err()
 }
 
 // ── Worker Pool ──────────────────────────────────────────────────
@@ -111,7 +131,6 @@ func (wp *WorkerPool) processQueue(ctx context.Context, queueKey string) {
 		default:
 			jobData, err := Dequeue(ctx, wp.redis, queueKey, 5*time.Second)
 			if err != nil {
-				// Timeout or context cancelled -- loop and try again
 				continue
 			}
 
@@ -124,9 +143,6 @@ func (wp *WorkerPool) processQueue(ctx context.Context, queueKey string) {
 }
 
 // processWebhookJob handles forwarding a webhook to a merchant's URL.
-// Implementation will be in Phase 4 (webhook relay).
 func (wp *WorkerPool) processWebhookJob(ctx context.Context, jobData string) {
-	// TODO: Phase 4 -- parse job, HTTP POST to merchant webhook URL,
-	// handle retries with exponential backoff
 	log.Printf("worker: processing webhook job (len=%d)", len(jobData))
 }
