@@ -321,9 +321,7 @@ func generateReference(provider string) string {
 
 // --- Input/Output types ---
 
-type contextKeyType string
-
-const ctxKeyTestMode contextKeyType = "test_mode"
+// contextKey type and ctxKeyTestMode are defined in helpers.go
 
 type InitiateChargeInput struct {
 	Provider    string                 `json:"provider" validate:"required,oneof=paystack flutterwave"`
