@@ -189,21 +189,4 @@ func mapPaystackRefundStatus(status string) string {
 	}
 }
 
-// Context key type for secret keys (avoids collisions).
-type contextKey string
-
-const ctxKeySecretKey contextKey = "provider_secret_key"
-
-// WithSecretKey attaches a provider secret key to the context.
-func WithSecretKey(ctx context.Context, key string) context.Context {
-	return context.WithValue(ctx, ctxKeySecretKey, key)
-}
-
-// getString safely extracts a string from a map.
-func getString(m map[string]interface{}, key string) string {
-	if m == nil {
-		return ""
-	}
-	v, _ := m[key].(string)
-	return v
-}
+// Context keys, WithSecretKey, and getString are defined in helpers.go
