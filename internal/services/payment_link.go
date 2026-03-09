@@ -2,8 +2,6 @@ package services
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -343,11 +341,7 @@ func generateSlug(name string) string {
 	return slug + "-" + randomHex(4)
 }
 
-func randomHex(n int) string {
-	b := make([]byte, n)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
-}
+// randomHex is defined in helpers.go
 
 func nullStr(s string) *string {
 	if s == "" {
