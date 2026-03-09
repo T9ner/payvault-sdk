@@ -40,13 +40,25 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// Redirect to login on 401
+// Track whether we're already redirecting to prevent loops
+let isRedirecting = false;
+
+// Redirect to login on 401 — but only for dashboard/payment endpoints, not auth
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 && typeof window !== "undefined") {
-      // Don't redirect if already on auth pages
-      if (!window.location.pathname.startsWith("/auth")) {
+    if (
+      err.response?.status === 401 &&
+      typeof window !== "undefined" &&
+      !isRedirecting
+    ) {
+      const url = err.config?.url || "";
+      // Only redirect if the 401 came from a protected endpoint, not from /auth/*
+      const isAuthEndpoint = url.includes("/auth/");
+      const isOnAuthPage = window.location.pathname.startsWith("/auth");
+
+      if (!isAuthEndpoint && !isOnAuthPage) {
+        isRedirecting = true;
         Cookies.remove("pv_token");
         window.location.href = "/auth/login";
       }
