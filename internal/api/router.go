@@ -24,13 +24,13 @@ func NewRouter(h *Handlers, authMW *middleware.AuthMiddleware, rateLimiter *midd
 
 	r.Route("/api/v1", func(r chi.Router) {
 
-		// ── Public: Auth ────────────────────────────────────────
+		// ── Public: Auth ──────────────────────────────────────
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", h.Register)
 			r.Post("/login", h.Login)
 		})
 
-		// ── Public: Checkout (payment links) ────────────────────
+		// ── Public: Checkout (payment links) ──────────────────
 		// No auth -- these are customer-facing URLs
 		r.Route("/checkout", func(r chi.Router) {
 			r.Get("/{slug}", h.GetCheckoutPage)       // View payment link details
