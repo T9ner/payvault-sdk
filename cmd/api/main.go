@@ -26,7 +26,7 @@ func main() {
 
 	cfg := config.Load()
 
-	// ── Database ────────────────────────────────────────────────────────
+	// ── Database ────────────────────────────────────────────────
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
@@ -41,20 +41,23 @@ func main() {
 	}
 	log.Println("migrations applied")
 
-	// ── Redis / Queue ───────────────────────────────────────────────────
+	// ── Redis ────────────────────────────────────────────────────
 	redisClient := queue.NewRedisClient(cfg.RedisURL)
 	defer redisClient.Close()
 
 	log.Println("redis connected")
 
-	// ── Worker Pool ─────────────────────────────────────────────────────
+	// ── Queue Adapter ────────────────────────────────────────────
+	queueAdapter := queue.NewQueueAdapter(redisClient)
+
+	// ── Worker Pool ──────────────────────────────────────────────
 	workerPool := queue.NewWorkerPool(redisClient, db, cfg)
 	go workerPool.Start(context.Background())
 	defer workerPool.Stop()
 
 	log.Println("worker pool started")
 
-	// ── Services ────────────────────────────────────────────────────────
+	// ── Core Services ────────────────────────────────────────────
 
 	// Crypto service for encrypting/decrypting provider keys
 	cryptoSvc := services.NewCryptoService(cfg.EncryptionKey)
@@ -68,18 +71,52 @@ func main() {
 	providers.Register(services.NewFlutterwaveProvider())
 
 	// Transaction service (core payment lifecycle)
-	txnSvc := services.NewTransactionService(db, providers, cryptoSvc, redisClient)
+	txnSvc := services.NewTransactionService(db, providers, cryptoSvc, queueAdapter)
 
-	// Rate limiter
-	var rateLimiter *middleware.RateLimiter
-	if redisClient != nil {
-		rateLimiter = middleware.NewRateLimiter(redisClient.Client(), 100, time.Minute) // 100 req/min per merchant
-	}
+	// ── Phase 4-7 Services ───────────────────────────────────────
+
+	// Payment links (shareable checkout URLs)
+	linksSvc := services.NewPaymentLinkService(db, txnSvc, cfg.CheckoutBaseURL)
+
+	// Subscriptions (recurring billing via provider plans)
+	subsSvc := services.NewSubscriptionService(db, providers, cryptoSvc)
+
+	// Fraud detection (heuristic rules + Redis velocity counters)
+	fraudSvc := services.NewFraudService(db, redisClient)
+
+	// Webhook delivery (forward events to merchant URLs with retry)
+	webhookDlvSvc := services.NewWebhookDeliveryService(db, redisClient, cryptoSvc, cfg.WebhookMaxRetries)
+
+	// Status service (webhook-free DX -- polling and long-poll)
+	statusSvc := services.NewStatusService(db, redisClient)
 
 	log.Println("services initialized")
 
-	// ── HTTP Server ─────────────────────────────────────────────────────
-	router := api.NewRouter(authSvc, txnSvc, providers, cryptoSvc, rateLimiter)
+	// ── Middleware ────────────────────────────────────────────────
+
+	// Auth middleware (JWT + API key authentication)
+	authMW := middleware.NewAuthMiddleware(cfg.JWTSecret, authSvc)
+
+	// Rate limiter (Redis sliding window, per-merchant)
+	rateLimiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS, cfg.RateLimitBurst)
+
+	log.Println("middleware initialized")
+
+	// ── HTTP Handlers & Router ───────────────────────────────────
+
+	handlers := api.NewHandlers(
+		authSvc,
+		txnSvc,
+		providers,
+		cryptoSvc,
+		linksSvc,
+		subsSvc,
+		fraudSvc,
+		webhookDlvSvc,
+		statusSvc,
+	)
+
+	router := api.NewRouter(handlers, authMW, rateLimiter)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
@@ -89,10 +126,11 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// ── Graceful Shutdown ───────────────────────────────────────────────
+	// ── Graceful Shutdown ────────────────────────────────────────
 	go func() {
 		log.Printf("PayVault API v0.1.0 starting on port %s", cfg.Port)
 		log.Printf("Providers: %v", providers.List())
+		log.Printf("Checkout base URL: %s", cfg.CheckoutBaseURL)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server error: %v", err)
 		}
