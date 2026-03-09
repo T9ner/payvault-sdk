@@ -51,11 +51,10 @@ func main() {
 	queueAdapter := queue.NewQueueAdapter(redisClient)
 
 	// ── Worker Pool ──────────────────────────────────────────────
-	workerPool := queue.NewWorkerPool(redisClient, db, cfg)
-	go workerPool.Start(context.Background())
-	defer workerPool.Stop()
+	workerPool := queue.NewWorkerPool(redisClient)
+	// Deliverer is set below after services are initialized
 
-	log.Println("worker pool started")
+	log.Println("worker pool created")
 
 	// ── Core Services ────────────────────────────────────────────
 
@@ -91,6 +90,13 @@ func main() {
 	statusSvc := services.NewStatusService(db, redisClient)
 
 	log.Println("services initialized")
+
+	// Wire webhook deliverer into worker pool and start processing
+	workerPool.SetDeliverer(webhookDlvSvc)
+	go workerPool.Start(context.Background())
+	defer workerPool.Stop()
+
+	log.Println("worker pool started")
 
 	// ── Middleware ────────────────────────────────────────────────
 
