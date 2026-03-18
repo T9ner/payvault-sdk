@@ -9,9 +9,19 @@ import (
 	"io"
 )
 
-// Encrypt encrypts plaintext using AES-256-GCM with the given hex-encoded key.
-func Encrypt(plaintext string, hexKey string) (string, error) {
-	key, err := hex.DecodeString(hexKey)
+// CryptoService handles encryption/decryption using AES-256-GCM.
+type CryptoService struct {
+	hexKey string
+}
+
+// NewCryptoService creates a new CryptoService with the given hex-encoded key.
+func NewCryptoService(hexKey string) *CryptoService {
+	return &CryptoService{hexKey: hexKey}
+}
+
+// Encrypt encrypts plaintext using AES-256-GCM.
+func (c *CryptoService) Encrypt(plaintext string) (string, error) {
+	key, err := hex.DecodeString(c.hexKey)
 	if err != nil {
 		return "", fmt.Errorf("decode encryption key: %w", err)
 	}
@@ -36,8 +46,8 @@ func Encrypt(plaintext string, hexKey string) (string, error) {
 }
 
 // Decrypt decrypts hex-encoded ciphertext using AES-256-GCM.
-func Decrypt(ciphertextHex string, hexKey string) (string, error) {
-	key, err := hex.DecodeString(hexKey)
+func (c *CryptoService) Decrypt(ciphertextHex string) (string, error) {
+	key, err := hex.DecodeString(c.hexKey)
 	if err != nil {
 		return "", fmt.Errorf("decode encryption key: %w", err)
 	}

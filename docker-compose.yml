@@ -7,13 +7,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    environment:
-      - PORT=8080
-      - ENVIRONMENT=development
-      - DATABASE_URL=postgres://payvault:payvault@postgres:5432/payvault?sslmode=disable
-      - REDIS_URL=redis://redis:6379/0
-      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-me}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy

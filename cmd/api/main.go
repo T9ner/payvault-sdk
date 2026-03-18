@@ -50,12 +50,6 @@ func main() {
 	// ── Queue Adapter ────────────────────────────────────────────
 	queueAdapter := queue.NewQueueAdapter(redisClient)
 
-	// ── Worker Pool ──────────────────────────────────────────────
-	workerPool := queue.NewWorkerPool(redisClient)
-	// Deliverer is set below after services are initialized
-
-	log.Println("worker pool created")
-
 	// ── Core Services ────────────────────────────────────────────
 
 	// Crypto service for encrypting/decrypting provider keys
@@ -83,25 +77,23 @@ func main() {
 	// Fraud detection (heuristic rules + Redis velocity counters)
 	fraudSvc := services.NewFraudService(db, redisClient)
 
-	// Webhook delivery (forward events to merchant URLs with retry)
-	webhookDlvSvc := services.NewWebhookDeliveryService(db, redisClient, cryptoSvc, cfg.WebhookMaxRetries)
+	// Webhook delivery (forward events to merchant URLs synchronously)
+	webhookDlvSvc := services.NewWebhookDeliveryService(db, cryptoSvc, cfg.WebhookMaxRetries)
 
 	// Status service (webhook-free DX -- polling and long-poll)
 	statusSvc := services.NewStatusService(db, redisClient)
 
+	// Settings (API keys and provider creds)
+	settingsSvc := services.NewSettingsService(db, cryptoSvc)
+
 	log.Println("services initialized")
 
-	// Wire webhook deliverer into worker pool and start processing
-	workerPool.SetDeliverer(webhookDlvSvc)
-	go workerPool.Start(context.Background())
-	defer workerPool.Stop()
-
-	log.Println("worker pool started")
+	// Removed Webhook deliverer from worker pool as it is now synchronous dispatch
 
 	// ── Middleware ────────────────────────────────────────────────
 
 	// Auth middleware (JWT + API key authentication)
-	authMW := middleware.NewAuthMiddleware(cfg.JWTSecret, authSvc)
+	authMW := middleware.NewAuthMiddleware(db, cfg.JWTSecret, authSvc)
 
 	// Rate limiter (Redis sliding window, per-merchant)
 	rateLimiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS, cfg.RateLimitBurst)
@@ -120,6 +112,8 @@ func main() {
 		fraudSvc,
 		webhookDlvSvc,
 		statusSvc,
+		cfg,
+		settingsSvc,
 	)
 
 	router := api.NewRouter(handlers, authMW, rateLimiter)

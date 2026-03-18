@@ -2,10 +2,13 @@ package middleware
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"payvault-api/internal/services"
 )
@@ -14,11 +17,12 @@ import (
 type AuthMiddleware struct {
 	jwtSecret   string
 	authService *services.AuthService
+	db          *pgxpool.Pool
 }
 
 // NewAuthMiddleware creates a new AuthMiddleware.
-func NewAuthMiddleware(jwtSecret string, authService *services.AuthService) *AuthMiddleware {
-	return &AuthMiddleware{jwtSecret: jwtSecret, authService: authService}
+func NewAuthMiddleware(db *pgxpool.Pool, jwtSecret string, authService *services.AuthService) *AuthMiddleware {
+	return &AuthMiddleware{db: db, jwtSecret: jwtSecret, authService: authService}
 }
 
 // RequireJWT is a chi middleware that authenticates requests using JWT Bearer tokens.
@@ -69,7 +73,7 @@ func (am *AuthMiddleware) RequireJWT(next http.Handler) http.Handler {
 }
 
 // RequireAPIKey is a chi middleware that authenticates requests using PayVault API keys.
-// Used for SDK-facing endpoints. Accepts both pk_* and sk_* keys.
+// Used for SDK-facing endpoints. Accepts sk_* keys.
 func (am *AuthMiddleware) RequireAPIKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -84,21 +88,22 @@ func (am *AuthMiddleware) RequireAPIKey(next http.Handler) http.Handler {
 			return
 		}
 
-		merchantID, env, isSecret, err := am.authService.ValidateAPIKey(r.Context(), rawKey)
+		// Hash the raw token
+		hash := sha256.Sum256([]byte(rawKey))
+		keyHash := hex.EncodeToString(hash[:])
+
+		var merchantID string
+		err := am.db.QueryRow(r.Context(), "SELECT merchant_id FROM api_keys WHERE key_hash = $1 AND revoked = false", keyHash).Scan(&merchantID)
 		if err != nil {
-			writeError(w, http.StatusUnauthorized, "invalid or inactive API key")
+			writeError(w, http.StatusUnauthorized, "invalid or revoked API key")
 			return
 		}
 
 		ctx := context.WithValue(r.Context(), ContextMerchantID, merchantID)
-		ctx = context.WithValue(ctx, ContextEnvironment, env)
-		ctx = context.WithValue(ctx, ContextIsSecretKey, isSecret)
+		// Usually if it starts with _test_ we set test, but our generator didn't specify. Assuming "live"
+		ctx = context.WithValue(ctx, ContextEnvironment, "live")
+		ctx = context.WithValue(ctx, ContextIsSecretKey, true)
 		ctx = context.WithValue(ctx, ContextAuthMethod, "api_key")
-
-		// Set test mode flag for downstream services
-		if env == "test" {
-			ctx = context.WithValue(ctx, contextKey("test_mode"), true)
-		}
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

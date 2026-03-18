@@ -7,10 +7,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"payvault-api/internal/config"
 	"payvault-api/internal/middleware"
 	"payvault-api/internal/services"
-
-	"github.com/go-chi/chi/v5"
 )
 
 // Handlers holds all HTTP handler dependencies.
@@ -24,6 +27,8 @@ type Handlers struct {
 	fraud       *services.FraudService
 	webhookDlv  *services.WebhookDeliveryService
 	status      *services.StatusService
+	config      *config.Config
+	settings    *services.SettingsService
 }
 
 func NewHandlers(
@@ -36,6 +41,8 @@ func NewHandlers(
 	fraud *services.FraudService,
 	webhookDlv *services.WebhookDeliveryService,
 	status *services.StatusService,
+	cfg *config.Config,
+	settings *services.SettingsService,
 ) *Handlers {
 	return &Handlers{
 		auth:        auth,
@@ -47,6 +54,8 @@ func NewHandlers(
 		fraud:       fraud,
 		webhookDlv:  webhookDlv,
 		status:      status,
+		config:      cfg,
+		settings:    settings,
 	}
 }
 
@@ -123,68 +132,7 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ==================== API Key Handlers ====================
-
-// POST /api/v1/dashboard/api-keys
-func (h *Handlers) GenerateAPIKey(w http.ResponseWriter, r *http.Request) {
-	merchantID := middleware.GetMerchantID(r.Context())
-
-	var input struct {
-		Mode  string `json:"mode"` // "live" or "test"
-		Label string `json:"label"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-	if input.Mode == "" {
-		input.Mode = "test"
-	}
-
-	keys, err := h.auth.GenerateAPIKeyPair(r.Context(), merchantID, input.Mode, input.Label)
-	if err != nil {
-		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	middleware.JSONResponse(w, http.StatusCreated, map[string]interface{}{
-		"message":    "API keys generated. Store your secret key securely -- it won't be shown again.",
-		"public_key": keys.PublicKey,
-		"secret_key": keys.SecretKey,
-		"mode":       input.Mode,
-	})
-}
-
-// ==================== Provider Credential Handlers ====================
-
-// POST /api/v1/dashboard/providers
-func (h *Handlers) SaveProviderCredentials(w http.ResponseWriter, r *http.Request) {
-	merchantID := middleware.GetMerchantID(r.Context())
-
-	var input struct {
-		Provider  string `json:"provider"`   // "paystack" or "flutterwave"
-		SecretKey string `json:"secret_key"` // Provider's secret key
-		PublicKey string `json:"public_key"` // Provider's public key
-	}
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-	if input.Provider == "" || input.SecretKey == "" {
-		middleware.ErrorResponse(w, http.StatusBadRequest, "provider and secret_key are required")
-		return
-	}
-
-	if err := h.auth.StoreProviderCredentials(r.Context(), merchantID, input.Provider, input.SecretKey, input.PublicKey); err != nil {
-		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"message":  "Provider credentials saved securely",
-		"provider": input.Provider,
-	})
-}
+// Legacy handlers removed
 
 // ==================== Transaction Handlers ====================
 
@@ -375,161 +323,95 @@ func (h *Handlers) CheckoutPay(w http.ResponseWriter, r *http.Request) {
 	middleware.JSONResponse(w, http.StatusCreated, result)
 }
 
-// ==================== Subscription Handlers ====================
-
-// POST /api/v1/dashboard/subscriptions/plans
-func (h *Handlers) CreatePlan(w http.ResponseWriter, r *http.Request) {
-	merchantID := middleware.GetMerchantID(r.Context())
-
-	var input services.CreatePlanInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-	if input.Provider == "" || input.Name == "" || input.Amount <= 0 || input.Interval == "" {
-		middleware.ErrorResponse(w, http.StatusBadRequest, "provider, name, amount, and interval are required")
-		return
-	}
-
-	plan, err := h.subs.CreatePlan(r.Context(), merchantID, input)
-	if err != nil {
-		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	middleware.JSONResponse(w, http.StatusCreated, plan)
-}
-
-// POST /api/v1/payments/subscribe
-func (h *Handlers) Subscribe(w http.ResponseWriter, r *http.Request) {
-	merchantID := middleware.GetMerchantID(r.Context())
-
-	var input services.SubscribeInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-	if input.Provider == "" || input.PlanCode == "" || input.Email == "" {
-		middleware.ErrorResponse(w, http.StatusBadRequest, "provider, plan_code, and email are required")
-		return
-	}
-
-	result, err := h.subs.Subscribe(r.Context(), merchantID, input)
-	if err != nil {
-		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	middleware.JSONResponse(w, http.StatusCreated, result)
-}
-
-// POST /api/v1/dashboard/subscriptions/{id}/cancel
-func (h *Handlers) CancelSubscription(w http.ResponseWriter, r *http.Request) {
-	merchantID := middleware.GetMerchantID(r.Context())
-	subID := chi.URLParam(r, "id")
-
-	if err := h.subs.Cancel(r.Context(), merchantID, subID); err != nil {
-		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{"message": "Subscription cancelled"})
-}
-
-// GET /api/v1/dashboard/subscriptions
-func (h *Handlers) ListSubscriptions(w http.ResponseWriter, r *http.Request) {
-	merchantID := middleware.GetMerchantID(r.Context())
-	limit, offset := parsePagination(r)
-
-	subs, total, err := h.subs.ListSubscriptions(r.Context(), merchantID, limit, offset)
-	if err != nil {
-		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"subscriptions": subs,
-		"total":         total,
-		"limit":         limit,
-		"offset":        offset,
-	})
-}
-
 // ==================== Fraud Handlers ====================
 
 // PUT /api/v1/dashboard/fraud/rules
 func (h *Handlers) UpsertFraudRule(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r.Context())
 
-	var input services.UpdateFraudRuleInput
+	var input services.UpsertFraudRuleRequest
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	if input.RuleName == "" {
-		middleware.ErrorResponse(w, http.StatusBadRequest, "rule_name is required")
+	if input.RuleType == "" {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "rule_type is required")
 		return
 	}
 
-	if err := h.fraud.UpsertRule(r.Context(), merchantID, input); err != nil {
+	rule, err := h.fraud.UpsertFraudRule(r.Context(), merchantID, input)
+	if err != nil {
 		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{"message": "Fraud rule updated"})
+	middleware.JSONResponse(w, http.StatusOK, rule)
+}
+
+// GET /api/v1/dashboard/fraud/rules
+func (h *Handlers) ListFraudRules(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+
+	rules, err := h.fraud.ListFraudRules(r.Context(), merchantID)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, rules)
 }
 
 // GET /api/v1/dashboard/fraud/events
 func (h *Handlers) ListFraudEvents(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r.Context())
+	limitStr := r.URL.Query().Get("limit")
+	limit := 50
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		limit = l
+	}
+
+	events, err := h.fraud.ListFraudEvents(r.Context(), merchantID, limit)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, events)
+}
+
+// ==================== Webhook Log Handlers ====================
+
+// GET /api/v1/dashboard/webhooks/logs
+func (h *Handlers) ListWebhookLogs(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
 	limit, offset := parsePagination(r)
 
-	events, total, err := h.fraud.ListFraudEvents(r.Context(), merchantID, limit, offset)
+	entries, total, err := h.webhookDlv.ListWebhookLogs(r.Context(), merchantID, limit, offset)
 	if err != nil {
 		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"events": events,
+		"data":   entries,
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
 	})
 }
 
-// ==================== Webhook Log Handlers ====================
-
-// GET /api/v1/dashboard/webhooks
-func (h *Handlers) ListWebhookLog(w http.ResponseWriter, r *http.Request) {
-	merchantID := middleware.GetMerchantID(r.Context())
-	limit, offset := parsePagination(r)
-
-	entries, total, err := h.webhookDlv.ListWebhookLog(r.Context(), merchantID, limit, offset)
-	if err != nil {
-		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"webhooks": entries,
-		"total":    total,
-		"limit":    limit,
-		"offset":   offset,
-	})
-}
-
-// POST /api/v1/dashboard/webhooks/{id}/retry
+// POST /api/v1/dashboard/webhooks/logs/{id}/retry
 func (h *Handlers) RetryWebhook(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r.Context())
 	webhookID := chi.URLParam(r, "id")
 
-	if err := h.webhookDlv.RetryWebhook(r.Context(), merchantID, webhookID); err != nil {
+	log, err := h.webhookDlv.RetryWebhook(r.Context(), merchantID, webhookID)
+	if err != nil {
 		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{"message": "Webhook retry scheduled"})
+	middleware.JSONResponse(w, http.StatusOK, log)
 }
 
 // ==================== Provider Webhook Handlers ====================
@@ -559,6 +441,14 @@ func (h *Handlers) handleProviderWebhook(w http.ResponseWriter, r *http.Request,
 	var event map[string]interface{}
 	if err := json.Unmarshal(body, &event); err != nil {
 		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid JSON payload")
+		return
+	}
+
+	// 2.5 Extract Subscription specific details
+	subCode, subEvent := extractSubscriptionData(event, providerName)
+	if subCode != "" {
+		_ = h.subs.ProcessWebhook(r.Context(), subCode, subEvent)
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -619,14 +509,42 @@ func extractReference(event map[string]interface{}, provider string) string {
 	}
 }
 
+// extractSubscriptionData finds the provider_subscription_id and the event type
+func extractSubscriptionData(event map[string]interface{}, provider string) (string, string) {
+	switch provider {
+	case "paystack":
+		eventType, _ := event["event"].(string)
+		data, _ := event["data"].(map[string]interface{})
+
+		// If data has subscription_code directly (subscription.create, etc.)
+		if subCode, ok := data["subscription_code"].(string); ok && subCode != "" {
+			return subCode, eventType
+		}
+
+		// If it's a charge webhook containing a plan object
+		if plan, ok := data["plan"].(map[string]interface{}); ok {
+			if subCode, ok := plan["subscription_code"].(string); ok && subCode != "" {
+				return subCode, eventType
+			}
+		}
+	}
+	// Fallback to empty
+	return "", ""
+}
+
 // ==================== Status Handlers (Webhook-Free DX) ====================
 
 // GET /api/v1/payments/status/{reference}
 func (h *Handlers) GetTransactionStatus(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r.Context())
+	merchantUUID, err := uuid.Parse(merchantID)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusUnauthorized, "invalid merchant ID")
+		return
+	}
 	reference := chi.URLParam(r, "reference")
 
-	status, err := h.status.GetStatus(r.Context(), merchantID, reference)
+	status, err := h.status.GetStatus(r.Context(), merchantUUID, reference)
 	if err != nil {
 		middleware.ErrorResponse(w, http.StatusNotFound, err.Error())
 		return
@@ -638,9 +556,13 @@ func (h *Handlers) GetTransactionStatus(w http.ResponseWriter, r *http.Request) 
 // GET /api/v1/payments/status/{reference}/wait
 func (h *Handlers) WaitForStatus(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r.Context())
+	merchantUUID, err := uuid.Parse(merchantID)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusUnauthorized, "invalid merchant ID")
+		return
+	}
 	reference := chi.URLParam(r, "reference")
 
-	// Parse timeout from query param (default 30s, max 30s)
 	timeoutSec := 30
 	if t := r.URL.Query().Get("timeout"); t != "" {
 		if parsed, err := strconv.Atoi(t); err == nil && parsed > 0 && parsed <= 30 {
@@ -649,7 +571,7 @@ func (h *Handlers) WaitForStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status, timedOut, err := h.status.WaitForStatus(
-		r.Context(), merchantID, reference,
+		r.Context(), merchantUUID, reference,
 		time.Duration(timeoutSec)*time.Second,
 	)
 	if err != nil {
@@ -666,6 +588,11 @@ func (h *Handlers) WaitForStatus(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/payments/status/batch
 func (h *Handlers) BatchStatus(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r.Context())
+	merchantUUID, err := uuid.Parse(merchantID)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusUnauthorized, "invalid merchant ID")
+		return
+	}
 
 	var input struct {
 		References []string `json:"references"`
@@ -679,7 +606,7 @@ func (h *Handlers) BatchStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	statuses, err := h.status.GetBatchStatus(r.Context(), merchantID, input.References)
+	statuses, err := h.status.GetBatchStatus(r.Context(), merchantUUID, input.References)
 	if err != nil {
 		middleware.ErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
@@ -694,6 +621,11 @@ func (h *Handlers) BatchStatus(w http.ResponseWriter, r *http.Request) {
 // GET /api/v1/payments/activity
 func (h *Handlers) RecentActivity(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r.Context())
+	merchantUUID, err := uuid.Parse(merchantID)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusUnauthorized, "invalid merchant ID")
+		return
+	}
 
 	limit := 20
 	if l := r.URL.Query().Get("limit"); l != "" {
@@ -702,7 +634,7 @@ func (h *Handlers) RecentActivity(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	transitions, err := h.status.RecentTransitions(r.Context(), merchantID, limit)
+	transitions, err := h.status.RecentTransitions(r.Context(), merchantUUID, limit)
 	if err != nil {
 		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
@@ -718,11 +650,31 @@ func (h *Handlers) RecentActivity(w http.ResponseWriter, r *http.Request) {
 
 // GET /health
 func (h *Handlers) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
+	// Basic in-process health
+	health := map[string]interface{}{
 		"status":  "healthy",
 		"service": "payvault-api",
 		"version": "0.2.0",
-	})
+	}
+	// Additional readiness check: verify DB connectivity
+	if h.config != nil && h.config.DatabaseURL != "" {
+		ctx := r.Context()
+		pool, err := pgxpool.Connect(ctx, h.config.DatabaseURL)
+		if err != nil {
+			health["status"] = "degraded"
+			health["db"] = "unreachable"
+		} else {
+			if err := pool.Ping(ctx); err != nil {
+				health["status"] = "degraded"
+				health["db"] = "unresponsive"
+			} else {
+				health["db"] = "ok"
+			}
+			pool.Close()
+		}
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, health)
 }
 
 // ==================== Helpers ====================
@@ -737,4 +689,41 @@ func parsePagination(r *http.Request) (int, int) {
 		offset = 0
 	}
 	return limit, offset
+}
+
+// ==================== Settings Handlers ====================
+
+// POST /api/v1/dashboard/api-keys
+func (h *Handlers) GenerateAPIKey(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+
+	key, err := h.settings.GenerateAPIKey(r.Context(), merchantID)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, key)
+}
+
+// POST /api/v1/dashboard/providers
+func (h *Handlers) SaveProviderCredentials(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+
+	var input services.SaveProviderCredentialsRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if input.Provider == "" || input.SecretKey == "" {
+		middleware.ErrorResponse(w, http.StatusBadRequest, "provider and secret_key are required")
+		return
+	}
+
+	if err := h.settings.SaveProviderCredentials(r.Context(), merchantID, input); err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{"message": "credentials saved safely"})
 }

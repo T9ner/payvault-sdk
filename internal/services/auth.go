@@ -89,6 +89,31 @@ func (s *AuthService) RegisterMerchant(ctx context.Context, businessName, email,
 	return &merchant, nil
 }
 
+// ── GitHub OAuth ──────────────────────────────────────────────────
+
+// UpsertGithubMerchant creates or updates a merchant from GitHub OAuth data.
+func (s *AuthService) UpsertGithubMerchant(ctx context.Context, githubID int64, username, email, avatarURL string) (*Merchant, error) {
+	var merchant Merchant
+
+	// Insert or update based on email matches / github_id
+	err := s.db.QueryRow(ctx,
+		`INSERT INTO merchants (github_id, business_name, email, avatar_url, role, is_active)
+		 VALUES ($1, $2, $3, $4, 'owner', true)
+		 ON CONFLICT (email) DO UPDATE SET
+			github_id = EXCLUDED.github_id,
+			avatar_url = COALESCE(merchants.avatar_url, EXCLUDED.avatar_url),
+			business_name = COALESCE(merchants.business_name, EXCLUDED.business_name)
+		 RETURNING id, business_name, email`,
+		githubID, username, email, avatarURL,
+	).Scan(&merchant.ID, &merchant.BusinessName, &merchant.Email)
+
+	if err != nil {
+		return nil, fmt.Errorf("upsert github merchant: %w", err)
+	}
+
+	return &merchant, nil
+}
+
 // ── Login ─────────────────────────────────────────────────────────
 
 // AuthenticateMerchant verifies email/password and returns the merchant.
@@ -110,6 +135,19 @@ func (s *AuthService) AuthenticateMerchant(ctx context.Context, email, password 
 		return nil, ErrInvalidCredentials
 	}
 
+	return &merchant, nil
+}
+
+// GetMerchantByID fetches a merchant by UUID.
+func (s *AuthService) GetMerchantByID(ctx context.Context, id string) (*Merchant, error) {
+	var merchant Merchant
+	err := s.db.QueryRow(ctx,
+		`SELECT id, business_name, email FROM merchants WHERE id = $1 AND is_active = true`,
+		id,
+	).Scan(&merchant.ID, &merchant.BusinessName, &merchant.Email)
+	if err != nil {
+		return nil, ErrMerchantNotFound
+	}
 	return &merchant, nil
 }
 

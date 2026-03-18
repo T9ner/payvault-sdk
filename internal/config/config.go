@@ -14,8 +14,11 @@ type Config struct {
 	RedisURL string
 
 	// Auth
-	JWTSecret     string
-	EncryptionKey string
+	JWTSecret              string
+	EncryptionKey          string
+	GithubClientID         string
+	GithubClientSecret     string
+	FrontendURL            string
 
 	// Rate Limiting
 	RateLimitRPS   int
@@ -37,8 +40,11 @@ func Load() *Config {
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://payvault:payvault@localhost:5432/payvault?sslmode=disable"),
 		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379/0"),
 
-		JWTSecret:     getEnv("JWT_SECRET", "change-me-in-production"),
-		EncryptionKey: getEnv("ENCRYPTION_KEY", "0000000000000000000000000000000000000000000000000000000000000000"),
+		JWTSecret:          getEnv("JWT_SECRET", "change-me-in-production"),
+		EncryptionKey:      getEnv("ENCRYPTION_KEY", "0000000000000000000000000000000000000000000000000000000000000000"),
+		GithubClientID:     getEnv("GITHUB_CLIENT_ID", ""),
+		GithubClientSecret: getEnv("GITHUB_CLIENT_SECRET", ""),
+		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:5173"),
 
 		RateLimitRPS:   getEnvInt("RATE_LIMIT_RPS", 100),
 		RateLimitBurst: getEnvInt("RATE_LIMIT_BURST", 200),
