@@ -3,12 +3,12 @@ version: '3.9'
 services:
   api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./apps/api
+      dockerfile: ./apps/api/Dockerfile
     ports:
       - "8080:8080"
     env_file:
-      - .env
+      - ./apps/api/.env
     depends_on:
       postgres:
         condition: service_healthy
