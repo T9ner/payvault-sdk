@@ -4,7 +4,7 @@
 
 ### One API. Every African payment provider.
 
-[![npm version](https://img.shields.io/npm/v/payvault.svg?style=flat-square)](https://www.npmjs.com/package/payvault)
+[![npm version](https://img.shields.io/npm/v/payvault-sdk.svg?style=flat-square)](https://www.npmjs.com/package/payvault-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
@@ -34,13 +34,13 @@ PayVault gives you a single, type-safe API that works with Paystack, Flutterwave
 ### Installation
 
 ```bash
-npm install payvault
+npm install payvault-sdk
 ```
 
 ### Initialize a Payment (Paystack)
 
 ```typescript
-import { PayVault } from 'payvault';
+import { PayVault } from 'payvault-sdk';
 
 // Create a PayVault instance for Paystack
 const vault = PayVault.paystack('sk_test_xxxxx');
@@ -181,7 +181,7 @@ PayVault normalizes webhook payloads across providers into a single `WebhookEven
 
 ```typescript
 import express from 'express';
-import { PayVault } from 'payvault';
+import { PayVault } from 'payvault-sdk';
 
 const app = express();
 const vault = PayVault.paystack('sk_live_xxxxx', {
@@ -432,7 +432,7 @@ import {
   ProviderError,
   NetworkError,
   TransactionError,
-} from 'payvault';
+} from 'payvault-sdk';
 
 try {
   await vault.initializeTransaction({ amount: 5000, email: '' });
@@ -472,7 +472,7 @@ try {
 Add support for any payment provider by implementing the `Provider` interface.
 
 ```typescript
-import { PayVault } from 'payvault';
+import { PayVault } from 'payvault-sdk';
 import type {
   PayVaultConfig,
   Provider,
@@ -484,7 +484,7 @@ import type {
   RefundConfig,
   RefundResult,
   WebhookEvent,
-} from 'payvault';
+} from 'payvault-sdk';
 
 class MyCustomProvider implements Provider {
   name = 'my_provider';
@@ -591,7 +591,7 @@ import type {
   ChargeResult,
   WebhookEvent,
   Provider,
-} from 'payvault';
+} from 'payvault-sdk';
 ```
 
 ---
@@ -641,4 +641,4 @@ We welcome contributions! Here's how:
 
 MIT License. See [LICENSE](LICENSE) for details.
 
-Built with care for African developers, by T9ner🧑‍💻.
+Built with care for African developers, by African developers.
