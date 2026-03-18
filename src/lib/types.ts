@@ -1,14 +1,4 @@
 // ── Auth ────────────────────────────────────────────────────
-export interface RegisterRequest {
-  business_name: string;
-  email: string;
-  password: string;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
 
 export interface AuthResponse {
   token: string;
@@ -42,11 +32,17 @@ export interface Transaction {
   reference: string;
   merchant_id: string;
   provider: string;
+  provider_ref?: string;
+  environment: string;
   amount: number;
   currency: string;
   status: TransactionStatus;
-  customer_email: string;
-  metadata: Record<string, unknown>;
+  email: string;
+  channel?: string;
+  ip_address?: string;
+  metadata?: Record<string, unknown>;
+  authorization_url?: string;
+  paid_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -190,6 +186,13 @@ export interface PaginatedResponse<T> {
   total: number;
   page: number;
   per_page: number;
+}
+
+export interface TransactionListResponse {
+  transactions: Transaction[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 // ── Dashboard Stats ─────────────────────────────────────────

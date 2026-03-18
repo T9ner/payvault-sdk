@@ -15,11 +15,9 @@ export default function AuthLayout() {
     <div className="flex min-h-screen">
       {/* Left panel - Branding */}
       <div className="hidden w-1/2 flex-col justify-between bg-[hsl(var(--primary))] p-10 text-[hsl(var(--primary-foreground))] lg:flex">
-        <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
-            <span className="text-lg font-bold">PV</span>
-          </div>
-          <span className="text-2xl font-semibold tracking-tight">PayVault</span>
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="PayVault Logo" className="h-12 w-auto object-contain rounded-xl shadow-sm" />
+          <span className="text-3xl font-semibold tracking-tight">PayVault</span>
         </div>
         <div>
           <h1 className="mb-4 text-4xl font-bold tracking-tight">

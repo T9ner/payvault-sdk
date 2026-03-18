@@ -1,9 +1,7 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
 import Cookies from "js-cookie";
 import type {
-  AuthResponse,
-  LoginRequest,
-  RegisterRequest,
+  Merchant,
   APIKey,
   ProviderCredentials,
   ChargeRequest,
@@ -17,9 +15,10 @@ import type {
   UpsertFraudRuleRequest,
   FraudEvent,
   WebhookLog,
+  TransactionListResponse,
 } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 // ── Axios instance ──────────────────────────────────────────
 const api: AxiosInstance = axios.create({
@@ -48,11 +47,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 // ── Auth ────────────────────────────────────────────────────
 export const auth = {
-  register: (data: RegisterRequest) =>
-    api.post<AuthResponse>("/auth/register", data).then((r) => r.data),
-
-  login: (data: LoginRequest) =>
-    api.post<AuthResponse>("/auth/login", data).then((r) => r.data),
+  getMe: () => api.get<Merchant>("/auth/me").then((r) => r.data),
 
   setToken: (token: string) => {
     console.log("[Auth] Setting token");
@@ -119,10 +114,10 @@ export const dashboard = {
 
   // Webhooks
   listWebhookLogs: (params?: { page?: number; limit?: number }) =>
-    api.get<WebhookLog[]>("/dashboard/webhooks", { params }).then((r) => r.data),
+    api.get<WebhookLog[]>("/dashboard/webhooks/logs", { params }).then((r) => r.data),
 
   retryWebhook: (id: string) =>
-    api.post(`/dashboard/webhooks/${id}/retry`).then((r) => r.data),
+    api.post(`/dashboard/webhooks/logs/${id}/retry`).then((r) => r.data),
 };
 
 // ── Payments (API-key-protected, but we call from dashboard context) ──
@@ -134,9 +129,18 @@ export const payments = {
     page?: number;
     limit?: number;
     status?: string;
-  }) => {
-    const res = await api.get("/dashboard/transactions", { params });
-    return res.data.transactions;
+  }): Promise<TransactionListResponse> => {
+    const limit = params?.limit || 20;
+    const page = params?.page || 1;
+    const offset = (page - 1) * limit;
+
+    const queryParams: Record<string, any> = { limit, offset };
+    if (params?.status && params.status !== "all") {
+      queryParams.status = params.status;
+    }
+
+    const res = await api.get("/dashboard/transactions", { params: queryParams });
+    return res.data;
   },
   getActivity: async () => {
     const res = await api.get("/dashboard/transactions/activity");

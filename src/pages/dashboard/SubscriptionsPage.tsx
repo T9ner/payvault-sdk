@@ -1,22 +1,38 @@
 import { useEffect, useState } from "react";
 import { dashboard } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/formatters";
-import type { Subscription, Plan, CreatePlanRequest } from "@/lib/types";
+import type { Subscription, CreatePlanRequest } from "@/lib/types";
 import {
   RefreshCw,
   Plus,
-  X,
-  Loader2,
   XCircle,
   Calendar,
+  Loader2,
 } from "lucide-react";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [cancelling, setCancelling] = useState("");
+  
+  const [subToCancel, setSubToCancel] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  
+  const { toast } = useToast();
+
   const [planForm, setPlanForm] = useState<CreatePlanRequest>({
     name: "",
     amount: 0,
@@ -31,6 +47,7 @@ export default function SubscriptionsPage() {
       setSubscriptions(Array.isArray(data) ? data : []);
     } catch {
       setSubscriptions([]);
+      toast.error("Failed to load subscriptions.");
     } finally {
       setLoading(false);
     }
@@ -38,6 +55,7 @@ export default function SubscriptionsPage() {
 
   useEffect(() => {
     loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreatePlan = async (e: React.FormEvent) => {
@@ -50,212 +68,189 @@ export default function SubscriptionsPage() {
       });
       setShowCreatePlan(false);
       setPlanForm({ name: "", amount: 0, currency: "NGN", interval: "monthly" });
+      toast.success("Subscription plan created successfully.");
       await loadData();
     } catch {
-      alert("Failed to create plan");
+      toast.error("Failed to create plan.");
     } finally {
       setCreating(false);
     }
   };
 
-  const handleCancel = async (id: string) => {
-    if (!confirm("Cancel this subscription?")) return;
-    setCancelling(id);
+  const handleCancel = async () => {
+    if (!subToCancel) return;
+    setCancelling(true);
     try {
-      await dashboard.cancelSubscription(id);
+      await dashboard.cancelSubscription(subToCancel);
+      toast.success("Subscription cancelled successfully.");
+      setSubToCancel(null);
       await loadData();
     } catch {
-      alert("Failed to cancel subscription");
+      toast.error("Failed to cancel subscription.");
     } finally {
-      setCancelling("");
+      setCancelling(false);
     }
   };
 
-  const statusColors: Record<string, string> = {
-    active: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
-    cancelled: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400",
-    expired: "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400",
-  };
+  const columns: ColumnDef<Subscription>[] = [
+    {
+      header: "Customer",
+      accessorKey: "customer_email",
+    },
+    {
+      header: "Plan",
+      accessorKey: (row) => <span className="font-mono text-xs text-[hsl(var(--muted-foreground))]">{row.plan_id.slice(0, 12)}...</span>,
+    },
+    {
+      header: "Status",
+      accessorKey: (row) => <StatusBadge status={row.status} />,
+    },
+    {
+      header: "Current Period Ends",
+      accessorKey: (row) => (
+        <div className="flex items-center gap-1.5 text-[hsl(var(--muted-foreground))]">
+          <Calendar size={14} />
+          <span>{formatDate(row.current_period_end)}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Created",
+      accessorKey: (row) => <span className="text-[hsl(var(--muted-foreground))]">{formatDate(row.created_at)}</span>,
+    },
+    {
+      header: "Actions",
+      className: "text-right",
+      accessorKey: (row) => (
+        row.status === "active" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSubToCancel(row.id);
+            }}
+            className="text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity gap-1"
+          >
+            <XCircle size={14} />
+            Cancel
+          </Button>
+        )
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Subscriptions</h1>
-          <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            Manage subscription plans and active subscribers
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreatePlan(true)}
-          className="flex h-9 items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} />
-          Create Plan
-        </button>
-      </div>
+      <PageHeader
+        title="Subscriptions"
+        description="Manage subscription plans and active subscribers"
+        action={{
+          label: "Create Plan",
+          icon: Plus,
+          onClick: () => setShowCreatePlan(true),
+        }}
+      />
 
-      {/* Subscriptions Table */}
-      <div className="rounded-xl border bg-[hsl(var(--card))]">
-        <div className="border-b px-6 py-4">
-          <h3 className="text-sm font-medium">Active Subscriptions</h3>
-        </div>
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
-            </div>
-          ) : subscriptions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-[hsl(var(--muted-foreground))]">
-              <RefreshCw size={36} className="mb-3 opacity-30" />
-              <p className="text-sm">No subscriptions yet</p>
-              <p className="text-xs">Create a plan first, then customers can subscribe via the API</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-xs font-medium text-[hsl(var(--muted-foreground))]">
-                  <th className="px-6 py-3">Customer</th>
-                  <th className="px-6 py-3">Plan</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Current Period Ends</th>
-                  <th className="px-6 py-3">Created</th>
-                  <th className="px-6 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {subscriptions.map((sub) => (
-                  <tr key={sub.id} className="border-b last:border-0">
-                    <td className="px-6 py-3 text-sm">{sub.customer_email}</td>
-                    <td className="px-6 py-3 text-sm font-mono">{sub.plan_id.slice(0, 8)}...</td>
-                    <td className="px-6 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[sub.status]}`}
-                      >
-                        {sub.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3 text-sm">
-                      <div className="flex items-center gap-1 text-[hsl(var(--muted-foreground))]">
-                        <Calendar size={14} />
-                        {formatDate(sub.current_period_end)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-3 text-sm text-[hsl(var(--muted-foreground))]">
-                      {formatDate(sub.created_at)}
-                    </td>
-                    <td className="px-6 py-3">
-                      {sub.status === "active" && (
-                        <button
-                          onClick={() => handleCancel(sub.id)}
-                          disabled={cancelling === sub.id}
-                          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[hsl(var(--destructive))] hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50"
-                        >
-                          {cancelling === sub.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <XCircle size={14} />
-                          )}
-                          Cancel
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={subscriptions}
+        loading={loading}
+        emptyIcon={RefreshCw}
+        emptyTitle="No active subscriptions"
+        emptyDescription="Create a plan first, then customers can subscribe via the API or dashboard."
+      />
 
       {/* Create Plan Modal */}
-      {showCreatePlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-[hsl(var(--card))] shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h3 className="font-semibold">Create Subscription Plan</h3>
-              <button
-                onClick={() => setShowCreatePlan(false)}
-                className="rounded-md p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]"
-              >
-                <X size={18} />
-              </button>
+      <Dialog open={showCreatePlan} onOpenChange={setShowCreatePlan}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create Subscription Plan</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreatePlan} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Plan Name</label>
+              <input
+                type="text"
+                value={planForm.name}
+                onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
+                placeholder="Pro Monthly"
+                required
+                className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+              />
             </div>
-            <form onSubmit={handleCreatePlan} className="space-y-4 px-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Plan Name</label>
+                <label className="text-sm font-medium">Amount</label>
                 <input
-                  type="text"
-                  value={planForm.name}
-                  onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
-                  placeholder="Pro Monthly"
+                  type="number"
+                  value={planForm.amount || ""}
+                  onChange={(e) =>
+                    setPlanForm({ ...planForm, amount: parseFloat(e.target.value) || 0 })
+                  }
+                  placeholder="5000.00"
+                  min="0"
+                  step="0.01"
                   required
-                  className="flex h-10 w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+                  className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Amount</label>
-                  <input
-                    type="number"
-                    value={planForm.amount || ""}
-                    onChange={(e) =>
-                      setPlanForm({ ...planForm, amount: parseFloat(e.target.value) || 0 })
-                    }
-                    placeholder="5000.00"
-                    min="0"
-                    step="0.01"
-                    required
-                    className="flex h-10 w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Currency</label>
-                  <select
-                    value={planForm.currency}
-                    onChange={(e) => setPlanForm({ ...planForm, currency: e.target.value })}
-                    className="flex h-10 w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-                  >
-                    <option value="NGN">NGN</option>
-                    <option value="USD">USD</option>
-                    <option value="GHS">GHS</option>
-                  </select>
-                </div>
-              </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Billing Interval</label>
+                <label className="text-sm font-medium">Currency</label>
                 <select
-                  value={planForm.interval}
-                  onChange={(e) => setPlanForm({ ...planForm, interval: e.target.value })}
-                  className="flex h-10 w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+                  value={planForm.currency}
+                  onChange={(e) => setPlanForm({ ...planForm, currency: e.target.value })}
+                  className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
                 >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
+                  <option value="NGN">NGN</option>
+                  <option value="USD">USD</option>
+                  <option value="GHS">GHS</option>
                 </select>
               </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreatePlan(false)}
-                  className="h-9 rounded-lg border px-4 text-sm font-medium transition-colors hover:bg-[hsl(var(--accent))]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex h-9 items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90 disabled:opacity-50"
-                >
-                  {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Plan"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Billing Interval</label>
+              <select
+                value={planForm.interval}
+                onChange={(e) => setPlanForm({ ...planForm, interval: e.target.value })}
+                className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreatePlan(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={creating}
+              >
+                {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Plan
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!subToCancel}
+        onOpenChange={(open) => !open && setSubToCancel(null)}
+        title="Cancel Subscription"
+        description="Are you sure you want to cancel this subscription? The customer will lose access at the end of their current billing period."
+        confirmLabel="Cancel Subscription"
+        variant="destructive"
+        loading={cancelling}
+        onConfirm={handleCancel}
+      />
     </div>
   );
 }

@@ -6,28 +6,29 @@ import {
   ArrowLeftRight,
   Copy,
   Check,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  X,
   RotateCcw,
 } from "lucide-react";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between py-2">
+    <div className="flex items-start justify-between py-3">
       <span className="text-sm text-[hsl(var(--muted-foreground))]">{label}</span>
       <span className="text-sm font-medium text-right max-w-[60%] break-all">{value}</span>
     </div>
   );
 }
-
-const statusColors: Record<string, string> = {
-  success: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
-  pending: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
-  failed: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400",
-  refunded: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400",
-};
 
 const statusTabs = ["all", "success", "pending", "failed", "refunded"];
 
@@ -36,9 +37,14 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [copied, setCopied] = useState("");
   const [selected, setSelected] = useState<Transaction | null>(null);
+  
   const [refunding, setRefunding] = useState(false);
+  const [confirmRefundOpen, setConfirmRefundOpen] = useState(false);
+  
+  const { toast } = useToast();
   const perPage = 20;
   const hasFetched = useRef(false);
 
@@ -51,9 +57,12 @@ export default function TransactionsPage() {
       };
       if (filter !== "all") params.status = filter;
       const data = await payments.listTransactions(params);
-      setTransactions(Array.isArray(data) ? data : []);
+      setTransactions(data.transactions || []);
+      setTotal(data.total || 0);
     } catch {
       setTransactions([]);
+      setTotal(0);
+      toast.error("Failed to load transactions.");
     } finally {
       setLoading(false);
     }
@@ -64,41 +73,83 @@ export default function TransactionsPage() {
       hasFetched.current = true;
     }
     loadTransactions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, filter]);
 
   const handleCopy = async (text: string, id: string) => {
     await copyToClipboard(text);
     setCopied(id);
+    toast.success("Copied to clipboard");
     setTimeout(() => setCopied(""), 2000);
   };
 
   const handleRefund = async () => {
     if (!selected) return;
-    if (!confirm(`Refund transaction ${selected.reference}?`)) return;
     setRefunding(true);
     try {
       await payments.refund({ reference: selected.reference });
+      toast.success("Refund processed successfully.");
+      setConfirmRefundOpen(false);
       setSelected(null);
       await loadTransactions();
     } catch {
-      alert("Refund failed");
+      toast.error("Refund failed to process.");
     } finally {
       setRefunding(false);
     }
   };
 
+  const columns: ColumnDef<Transaction>[] = [
+    {
+      header: "Reference",
+      accessorKey: (row) => (
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs">{row.reference.slice(0, 16)}...</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCopy(row.reference, row.id);
+            }}
+            className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+            title="Copy reference"
+          >
+            {copied === row.id ? (
+              <Check size={14} className="text-emerald-500" />
+            ) : (
+              <Copy size={14} />
+            )}
+          </button>
+        </div>
+      ),
+    },
+    { header: "Customer", accessorKey: "email" },
+    {
+      header: "Amount",
+      accessorKey: (row) => <span className="font-medium">{formatCurrency(row.amount, row.currency)}</span>,
+    },
+    {
+      header: "Provider",
+      accessorKey: (row) => <span className="capitalize">{row.provider}</span>,
+    },
+    {
+      header: "Status",
+      accessorKey: (row) => <StatusBadge status={row.status} />,
+    },
+    {
+      header: "Date",
+      accessorKey: (row) => <span className="text-[hsl(var(--muted-foreground))]">{formatDate(row.created_at)}</span>,
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
-        <p className="text-sm text-[hsl(var(--muted-foreground))]">
-          View and manage all payment transactions
-        </p>
-      </div>
+      <PageHeader
+        title="Transactions"
+        description="View and manage all payment transactions"
+      />
 
       {/* Status Filter Tabs */}
-      <div className="flex gap-1 rounded-lg border bg-[hsl(var(--card))] p-1">
+      <div className="flex w-fit gap-1 rounded-lg border bg-[hsl(var(--card))] p-1">
         {statusTabs.map((tab) => (
           <button
             key={tab}
@@ -106,10 +157,10 @@ export default function TransactionsPage() {
               setFilter(tab);
               setPage(1);
             }}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+            className={`rounded-md px-4 py-1.5 text-xs font-medium capitalize transition-colors duration-150 ${
               filter === tab
-                ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
-                : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]"
+                ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm"
+                : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))]"
             }`}
           >
             {tab}
@@ -117,151 +168,75 @@ export default function TransactionsPage() {
         ))}
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border bg-[hsl(var(--card))]">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" />
-          </div>
-        ) : transactions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[hsl(var(--muted-foreground))]">
-            <ArrowLeftRight size={32} className="mb-2 opacity-30" />
-            <p className="text-sm">No transactions found</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-xs font-medium text-[hsl(var(--muted-foreground))]">
-                  <th className="px-6 py-3">Reference</th>
-                  <th className="px-6 py-3">Customer</th>
-                  <th className="px-6 py-3">Amount</th>
-                  <th className="px-6 py-3">Provider</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr
-                    key={tx.id}
-                    className="border-b last:border-0 cursor-pointer hover:bg-[hsl(var(--accent))]"
-                    onClick={() => setSelected(tx)}
+      <DataTable
+        columns={columns}
+        data={transactions}
+        loading={loading}
+        emptyIcon={ArrowLeftRight}
+        emptyTitle="No transactions found"
+        emptyDescription={filter === "all" ? "You haven't processed any payments yet." : `No partial matches found for ${filter} transactions.`}
+        pagination={{
+          page,
+          total,
+          limit: perPage,
+          onPageChange: (newPage) => setPage(newPage),
+        }}
+        onRowClick={(row) => setSelected(row)}
+      />
+
+      {/* Transaction Detail Slide-over */}
+      <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <SheetContent side="right" className="w-[400px] sm:w-[500px] overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle>Transaction Details</SheetTitle>
+            <SheetDescription>
+              View detailed information and manage this transaction.
+            </SheetDescription>
+          </SheetHeader>
+          
+          {selected && (
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-1 items-center justify-center p-6 border rounded-xl bg-[hsl(var(--muted))]/50">
+                <StatusBadge status={selected.status} className="mb-2" />
+                <span className="text-3xl font-bold">{formatCurrency(selected.amount, selected.currency)}</span>
+                <span className="text-sm text-[hsl(var(--muted-foreground))]">{selected.email}</span>
+              </div>
+              
+              <div className="rounded-xl border bg-[hsl(var(--card))] divide-y p-4 px-6 shadow-sm">
+                <DetailRow label="Reference" value={selected.reference} />
+                <DetailRow label="Provider" value={selected.provider.toUpperCase()} />
+                <DetailRow label="Created At" value={formatDate(selected.created_at)} />
+                <DetailRow label="Last Updated" value={formatDate(selected.updated_at)} />
+              </div>
+
+              {selected.status === "success" && (
+                <div className="mt-4 border-t pt-6">
+                  <button
+                    onClick={() => setConfirmRefundOpen(true)}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors dark:border-red-900/40 dark:text-red-400 dark:hover:bg-red-900/20"
                   >
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono">
-                          {tx.reference.slice(0, 12)}...
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCopy(tx.reference, tx.id);
-                          }}
-                          className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                        >
-                          {copied === tx.id ? (
-                            <Check size={14} className="text-emerald-500" />
-                          ) : (
-                            <Copy size={14} />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-3 text-sm">{tx.customer_email}</td>
-                    <td className="px-6 py-3 text-sm font-medium">
-                      {formatCurrency(tx.amount, tx.currency)}
-                    </td>
-                    <td className="px-6 py-3 text-sm capitalize">{tx.provider}</td>
-                    <td className="px-6 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          statusColors[tx.status] || statusColors.pending
-                        }`}
-                      >
-                        {tx.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3 text-sm text-[hsl(var(--muted-foreground))]">
-                      {formatDate(tx.created_at)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {transactions.length > 0 && (
-          <div className="flex items-center justify-between border-t px-6 py-3">
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">
-              Page {page}
-            </p>
-            <div className="flex gap-2">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage(page - 1)}
-                className="rounded-md border p-1.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] disabled:opacity-30"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                disabled={transactions.length < perPage}
-                onClick={() => setPage(page + 1)}
-                className="rounded-md border p-1.5 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] disabled:opacity-30"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Transaction Detail Modal */}
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-[hsl(var(--card))] p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Transaction Details</h3>
-              <button
-                onClick={() => setSelected(null)}
-                className="rounded-md p-1 hover:bg-[hsl(var(--accent))]"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="divide-y">
-              <DetailRow label="Reference" value={selected.reference} />
-              <DetailRow label="Customer" value={selected.customer_email} />
-              <DetailRow
-                label="Amount"
-                value={formatCurrency(selected.amount, selected.currency)}
-              />
-              <DetailRow label="Provider" value={selected.provider} />
-              <DetailRow label="Status" value={selected.status} />
-              <DetailRow label="Created" value={formatDate(selected.created_at)} />
-              <DetailRow label="Updated" value={formatDate(selected.updated_at)} />
-            </div>
-            {selected.status === "success" && (
-              <button
-                onClick={handleRefund}
-                disabled={refunding}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
-              >
-                {refunding ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <RotateCcw size={14} />
+                    <RotateCcw size={16} />
                     Refund Transaction
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <ConfirmDialog
+        open={confirmRefundOpen}
+        onOpenChange={setConfirmRefundOpen}
+        title="Refund Transaction"
+        description={`Are you sure you want to refund ${
+          selected ? formatCurrency(selected.amount, selected.currency) : ""
+        } to the customer? This action cannot be undone.`}
+        confirmLabel="Process Refund"
+        variant="destructive"
+        loading={refunding}
+        onConfirm={handleRefund}
+      />
     </div>
   );
 }

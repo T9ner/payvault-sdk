@@ -5,20 +5,27 @@ import type { WebhookLog } from "@/lib/types";
 import {
   Webhook,
   RotateCcw,
-  Loader2,
   CheckCircle2,
   XCircle,
   Clock,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button } from "@/components/ui/button";
 
 export default function WebhooksPage() {
   const [logs, setLogs] = useState<WebhookLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [retrying, setRetrying] = useState("");
   const [page, setPage] = useState(1);
   const perPage = 20;
+
+  const [logToRetry, setLogToRetry] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+
+  const { toast } = useToast();
 
   const loadLogs = async () => {
     setLoading(true);
@@ -27,6 +34,7 @@ export default function WebhooksPage() {
       setLogs(Array.isArray(data) ? data : []);
     } catch {
       setLogs([]);
+      toast.error("Failed to load webhook logs.");
     } finally {
       setLoading(false);
     }
@@ -34,17 +42,21 @@ export default function WebhooksPage() {
 
   useEffect(() => {
     loadLogs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
-  const handleRetry = async (id: string) => {
-    setRetrying(id);
+  const handleRetry = async () => {
+    if (!logToRetry) return;
+    setRetrying(true);
     try {
-      await dashboard.retryWebhook(id);
+      await dashboard.retryWebhook(logToRetry);
+      toast.success("Webhook retry successfully triggered.");
+      setLogToRetry(null);
       await loadLogs();
     } catch {
-      alert("Retry failed");
+      toast.error("Webhook retry failed to queue.");
     } finally {
-      setRetrying("");
+      setRetrying(false);
     }
   };
 
@@ -59,157 +71,126 @@ export default function WebhooksPage() {
     }
   };
 
-  const statusColors: Record<string, string> = {
-    delivered: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
-    failed: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400",
-    pending: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
-  };
-
   const responseCodeColor = (code: number) => {
     if (code >= 200 && code < 300) return "text-emerald-600";
     if (code >= 400 && code < 500) return "text-amber-600";
     return "text-red-600";
   };
 
+  const columns: ColumnDef<WebhookLog>[] = [
+    {
+      header: "Status",
+      accessorKey: (row) => (
+        <div className="flex items-center gap-2">
+          {statusIcon(row.status)}
+          <span className="capitalize text-sm font-medium">{row.status}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Event",
+      accessorKey: (row) => <span className="text-sm font-medium">{row.event_type}</span>,
+    },
+    {
+      header: "URL Endpoint",
+      accessorKey: (row) => (
+        <code className="rounded-md bg-[hsl(var(--accent))] px-2 py-0.5 text-xs text-[hsl(var(--muted-foreground))] max-w-[200px] truncate block">
+          {row.url}
+        </code>
+      ),
+    },
+    {
+      header: "Response",
+      accessorKey: (row) => (
+        <span className={`text-sm font-mono font-medium ${responseCodeColor(row.response_code)}`}>
+          {row.response_code === 0 ? "Timeout" : row.response_code}
+        </span>
+      ),
+    },
+    {
+      header: "Attempts",
+      accessorKey: (row) => <span className="text-sm text-center font-medium">{row.attempts}</span>,
+    },
+    {
+      header: "Last Attempt",
+      accessorKey: (row) => <span className="text-[hsl(var(--muted-foreground))]">{formatDate(row.last_attempt_at)}</span>,
+    },
+    {
+      header: "Actions",
+      className: "text-right",
+      accessorKey: (row) => (
+        row.status === "failed" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation();
+              setLogToRetry(row.id);
+            }}
+            className="text-[hsl(var(--primary))] hover:bg-[hsl(var(--accent))] gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Retry Deliver"
+          >
+            <RotateCcw size={14} />
+            Retry
+          </Button>
+        )
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Webhooks</h1>
-        <p className="text-sm text-[hsl(var(--muted-foreground))]">
-          Monitor webhook deliveries and retry failed attempts
-        </p>
+      <PageHeader
+        title="Webhooks"
+        description="Monitor webhook deliveries and retry failed attempts"
+      />
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Delivered Events"
+          value={String(logs.filter((l) => l.status === "delivered").length)}
+          icon={CheckCircle2}
+          loading={loading}
+        />
+        <StatCard
+          label="Failed Events"
+          value={String(logs.filter((l) => l.status === "failed").length)}
+          icon={XCircle}
+          loading={loading}
+        />
+        <StatCard
+          label="Pending Events"
+          value={String(logs.filter((l) => l.status === "pending").length)}
+          icon={Clock}
+          loading={loading}
+        />
       </div>
 
-      {/* Stats */}
-      {!loading && logs.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border bg-[hsl(var(--card))] p-4">
-            <p className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Delivered</p>
-            <p className="mt-1 text-xl font-semibold text-emerald-600">
-              {logs.filter((l) => l.status === "delivered").length}
-            </p>
-          </div>
-          <div className="rounded-xl border bg-[hsl(var(--card))] p-4">
-            <p className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Failed</p>
-            <p className="mt-1 text-xl font-semibold text-red-600">
-              {logs.filter((l) => l.status === "failed").length}
-            </p>
-          </div>
-          <div className="rounded-xl border bg-[hsl(var(--card))] p-4">
-            <p className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Pending</p>
-            <p className="mt-1 text-xl font-semibold text-amber-600">
-              {logs.filter((l) => l.status === "pending").length}
-            </p>
-          </div>
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        data={logs}
+        loading={loading}
+        emptyIcon={Webhook}
+        emptyTitle="No webhook deliveries yet"
+        emptyDescription="Logs will appear here when an event is dispatched to your configured endpoint."
+        pagination={logs.length > 0 || page > 1 ? {
+          page,
+          total: logs.length === perPage ? page * perPage + 1 : page * perPage, // Rough estimate mapping for dummy API
+          limit: perPage,
+          onPageChange: (newPage) => setPage(newPage),
+        } : undefined}
+      />
 
-      {/* Logs Table */}
-      <div className="rounded-xl border bg-[hsl(var(--card))]">
-        <div className="border-b px-6 py-4">
-          <h3 className="text-sm font-medium">Delivery Log</h3>
-        </div>
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
-            </div>
-          ) : logs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-[hsl(var(--muted-foreground))]">
-              <Webhook size={36} className="mb-3 opacity-30" />
-              <p className="text-sm">No webhook deliveries yet</p>
-              <p className="text-xs">Webhook logs will appear here when events are dispatched</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-xs font-medium text-[hsl(var(--muted-foreground))]">
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Event</th>
-                  <th className="px-6 py-3">URL</th>
-                  <th className="px-6 py-3">Response</th>
-                  <th className="px-6 py-3">Attempts</th>
-                  <th className="px-6 py-3">Last Attempt</th>
-                  <th className="px-6 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id} className="border-b last:border-0">
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-2">
-                        {statusIcon(log.status)}
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[log.status]}`}
-                        >
-                          {log.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-3 text-sm">{log.event_type}</td>
-                    <td className="px-6 py-3">
-                      <code className="rounded bg-[hsl(var(--accent))] px-1.5 py-0.5 text-xs">
-                        {log.url.length > 40 ? log.url.slice(0, 40) + "..." : log.url}
-                      </code>
-                    </td>
-                    <td className="px-6 py-3">
-                      <span className={`text-sm font-mono font-medium ${responseCodeColor(log.response_code)}`}>
-                        {log.response_code}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3 text-sm text-center">
-                      {log.attempts}
-                    </td>
-                    <td className="px-6 py-3 text-sm text-[hsl(var(--muted-foreground))]">
-                      {formatDate(log.last_attempt_at)}
-                    </td>
-                    <td className="px-6 py-3">
-                      {log.status === "failed" && (
-                        <button
-                          onClick={() => handleRetry(log.id)}
-                          disabled={retrying === log.id}
-                          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[hsl(var(--primary))] hover:bg-[hsl(var(--accent))] disabled:opacity-50"
-                        >
-                          {retrying === log.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <RotateCcw size={14} />
-                          )}
-                          Retry
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Pagination */}
-        {!loading && logs.length > 0 && (
-          <div className="flex items-center justify-between border-t px-6 py-3">
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">Page {page}</p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
-                className="rounded-md p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] disabled:opacity-30"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                onClick={() => setPage(page + 1)}
-                disabled={logs.length < perPage}
-                className="rounded-md p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] disabled:opacity-30"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <ConfirmDialog
+        open={!!logToRetry}
+        onOpenChange={(open) => !open && setLogToRetry(null)}
+        title="Retry Webhook Delivery"
+        description="Are you sure you want to attempt redelivery of this webhook payload? The configured endpoint will receive another POST request."
+        confirmLabel="Retry Webhook"
+        variant="default" // Using default since retry isn't destructive
+        loading={retrying}
+        onConfirm={handleRetry}
+      />
     </div>
   );
 }

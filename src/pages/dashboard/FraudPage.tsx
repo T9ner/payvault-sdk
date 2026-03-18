@@ -4,11 +4,15 @@ import { formatDate } from "@/lib/formatters";
 import type { FraudEvent, UpsertFraudRuleRequest } from "@/lib/types";
 import {
   ShieldAlert,
-  Save,
   Loader2,
   AlertTriangle,
   ShieldOff,
 } from "lucide-react";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { PageHeader } from "@/components/ui/page-header";
+import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 
 const ruleTypes = [
   { value: "velocity", label: "Velocity Check", desc: "Max transactions per time window" },
@@ -21,13 +25,15 @@ export default function FraudPage() {
   const [events, setEvents] = useState<FraudEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  const { toast } = useToast();
+
   const [ruleForm, setRuleForm] = useState<UpsertFraudRuleRequest>({
     rule_type: "velocity",
     threshold: 10,
     action: "flag",
     enabled: true,
   });
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -36,54 +42,101 @@ export default function FraudPage() {
         setEvents(Array.isArray(data) ? data : []);
       } catch {
         setEvents([]);
+        toast.error("Failed to load fraud events.");
       } finally {
         setLoading(false);
       }
     }
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSaveRule = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setSaveSuccess(false);
     try {
       await dashboard.upsertFraudRule(ruleForm);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      toast.success("Fraud rule updated successfully.");
     } catch {
-      alert("Failed to save fraud rule");
+      toast.error("Failed to update fraud rule.");
     } finally {
       setSaving(false);
     }
   };
 
   const actionColors: Record<string, string> = {
-    flag: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
-    block: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400",
+    flag: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400 border-amber-200 dark:border-amber-900",
+    block: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-900",
   };
+
+  const columns: ColumnDef<FraudEvent>[] = [
+    {
+      header: "Transaction",
+      accessorKey: (row) => <span className="font-mono text-xs">{row.transaction_id.slice(0, 16)}...</span>,
+    },
+    {
+      header: "Rule",
+      accessorKey: (row) => <span className="capitalize">{row.rule_type.replace(/_/g, " ")}</span>,
+    },
+    {
+      header: "Risk Score",
+      accessorKey: (row) => (
+        <div className="flex items-center gap-3">
+          <div className="h-2.5 w-24 overflow-hidden rounded-full bg-[hsl(var(--muted))] border shadow-inner">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ease-out ${
+                row.risk_score > 80
+                  ? "bg-red-500"
+                  : row.risk_score > 50
+                  ? "bg-amber-500"
+                  : "bg-emerald-500"
+              }`}
+              style={{ width: `${Math.min(row.risk_score, 100)}%` }}
+            />
+          </div>
+          <span className="text-xs font-semibold w-6">{row.risk_score}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Action",
+      accessorKey: (row) => (
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${actionColors[row.action_taken] || actionColors.flag}`}
+        >
+          {row.action_taken === "block" ? (
+            <ShieldOff size={12} />
+          ) : (
+            <AlertTriangle size={12} />
+          )}
+          {row.action_taken.toUpperCase()}
+        </span>
+      ),
+    },
+    {
+      header: "Date",
+      accessorKey: (row) => <span className="text-[hsl(var(--muted-foreground))]">{formatDate(row.created_at)}</span>,
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Fraud Protection</h1>
-        <p className="text-sm text-[hsl(var(--muted-foreground))]">
-          Configure fraud rules and monitor suspicious activity
-        </p>
-      </div>
+      <PageHeader
+        title="Fraud Protection"
+        description="Configure fraud rules and monitor suspicious activity"
+      />
 
-      {/* Rule Editor */}
-      <div className="rounded-xl border bg-[hsl(var(--card))] p-6">
-        <h3 className="mb-4 text-sm font-medium">Configure Fraud Rule</h3>
-        <form onSubmit={handleSaveRule} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+      <div className="rounded-xl border bg-[hsl(var(--card))] p-6 shadow-sm overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[hsl(var(--primary))]/5 blur-3xl rounded-full translate-x-10 -translate-y-10" />
+        <h3 className="mb-6 text-sm font-semibold tracking-tight">Configure Fraud Rule</h3>
+        <form onSubmit={handleSaveRule} className="space-y-6 relative">
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="space-y-2.5">
               <label className="text-sm font-medium">Rule Type</label>
               <select
                 value={ruleForm.rule_type}
                 onChange={(e) => setRuleForm({ ...ruleForm, rule_type: e.target.value })}
-                className="flex h-10 w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+                className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/30 transition-shadow"
               >
                 {ruleTypes.map((rt) => (
                   <option key={rt.value} value={rt.value}>
@@ -91,12 +144,13 @@ export default function FraudPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+              <p className="text-xs text-[hsl(var(--muted-foreground))] pl-1">
                 {ruleTypes.find((rt) => rt.value === ruleForm.rule_type)?.desc}
               </p>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Threshold</label>
+            
+            <div className="space-y-2.5">
+              <label className="text-sm font-medium">Threshold Limit</label>
               <input
                 type="number"
                 value={ruleForm.threshold}
@@ -104,137 +158,60 @@ export default function FraudPage() {
                   setRuleForm({ ...ruleForm, threshold: parseInt(e.target.value) || 0 })
                 }
                 min="1"
-                className="flex h-10 w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+                className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/30 transition-shadow"
               />
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Action</label>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="space-y-2.5">
+              <label className="text-sm font-medium">Action on Detection</label>
               <select
                 value={ruleForm.action}
                 onChange={(e) =>
                   setRuleForm({ ...ruleForm, action: e.target.value as "flag" | "block" })
                 }
-                className="flex h-10 w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+                className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/30 transition-shadow"
               >
                 <option value="flag">Flag for Review</option>
                 <option value="block">Block Transaction</option>
               </select>
             </div>
-            <div className="flex items-end">
-              <label className="flex cursor-pointer items-center gap-3">
-                <div
-                  onClick={() => setRuleForm({ ...ruleForm, enabled: !ruleForm.enabled })}
-                  className={`relative h-6 w-11 rounded-full transition-colors ${
-                    ruleForm.enabled ? "bg-emerald-500" : "bg-neutral-300 dark:bg-neutral-600"
-                  }`}
-                >
-                  <div
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      ruleForm.enabled ? "translate-x-5" : "translate-x-0.5"
-                    }`}
-                  />
-                </div>
+            
+            <div className="flex flex-col justify-end pb-1.5">
+              <label className="flex cursor-pointer items-center justify-between sm:justify-start gap-4 p-3 rounded-lg border bg-[hsl(var(--accent))]/50 transition-colors hover:bg-[hsl(var(--accent))]/80">
                 <span className="text-sm font-medium">
-                  {ruleForm.enabled ? "Enabled" : "Disabled"}
+                  {ruleForm.enabled ? "Rule is Active" : "Rule is Disabled"}
                 </span>
+                <Switch 
+                  checked={ruleForm.enabled} 
+                  onCheckedChange={(checked) => setRuleForm({ ...ruleForm, enabled: checked })} 
+                />
               </label>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 pt-2">
-            <button
+          <div className="flex items-center justify-end pt-2 border-t mt-6">
+            <Button
               type="submit"
               disabled={saving}
-              className="flex h-9 items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="gap-2"
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save size={16} />}
-              Save Rule
-            </button>
-            {saveSuccess && (
-              <span className="text-sm text-emerald-600">Rule saved successfully!</span>
-            )}
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Configuration
+            </Button>
           </div>
         </form>
       </div>
 
-      {/* Fraud Events Log */}
-      <div className="rounded-xl border bg-[hsl(var(--card))]">
-        <div className="border-b px-6 py-4">
-          <h3 className="text-sm font-medium">Fraud Events</h3>
-        </div>
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
-            </div>
-          ) : events.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-[hsl(var(--muted-foreground))]">
-              <ShieldAlert size={36} className="mb-3 opacity-30" />
-              <p className="text-sm">No fraud events detected</p>
-              <p className="text-xs">Events will appear here when fraud rules are triggered</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left text-xs font-medium text-[hsl(var(--muted-foreground))]">
-                  <th className="px-6 py-3">Transaction</th>
-                  <th className="px-6 py-3">Rule</th>
-                  <th className="px-6 py-3">Risk Score</th>
-                  <th className="px-6 py-3">Action</th>
-                  <th className="px-6 py-3">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((event) => (
-                  <tr key={event.id} className="border-b last:border-0">
-                    <td className="px-6 py-3 text-sm font-mono">
-                      {event.transaction_id.slice(0, 12)}...
-                    </td>
-                    <td className="px-6 py-3 text-sm capitalize">
-                      {event.rule_type.replace("_", " ")}
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-16 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-                          <div
-                            className={`h-full rounded-full ${
-                              event.risk_score > 80
-                                ? "bg-red-500"
-                                : event.risk_score > 50
-                                ? "bg-amber-500"
-                                : "bg-emerald-500"
-                            }`}
-                            style={{ width: `${Math.min(event.risk_score, 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-medium">{event.risk_score}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${actionColors[event.action_taken] || actionColors.flag}`}
-                      >
-                        {event.action_taken === "block" ? (
-                          <ShieldOff size={12} />
-                        ) : (
-                          <AlertTriangle size={12} />
-                        )}
-                        {event.action_taken}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3 text-sm text-[hsl(var(--muted-foreground))]">
-                      {formatDate(event.created_at)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={events}
+        loading={loading}
+        emptyIcon={ShieldAlert}
+        emptyTitle="No fraud events detected"
+        emptyDescription="Events will automatically appear here when any active fraud rules are triggered."
+      />
     </div>
   );
 }

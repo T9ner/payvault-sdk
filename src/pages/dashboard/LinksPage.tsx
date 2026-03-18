@@ -10,8 +10,19 @@ import {
   Trash2,
   ExternalLink,
   Loader2,
-  X,
 } from "lucide-react";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function PaymentLinksPage() {
   const [links, setLinks] = useState<PaymentLink[]>([]);
@@ -19,6 +30,12 @@ export default function PaymentLinksPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState("");
+  
+  const [linkToDeactivate, setLinkToDeactivate] = useState<string | null>(null);
+  const [deactivating, setDeactivating] = useState(false);
+  
+  const { toast } = useToast();
+
   const [form, setForm] = useState<CreatePaymentLinkRequest>({
     name: "",
     description: "",
@@ -26,8 +43,7 @@ export default function PaymentLinksPage() {
     currency: "NGN",
   });
 
-  const checkoutBase =
-    import.meta.env.VITE_API_URL || "";
+  const checkoutBase = import.meta.env.VITE_API_URL || "";
 
   const loadLinks = async () => {
     setLoading(true);
@@ -36,6 +52,7 @@ export default function PaymentLinksPage() {
       setLinks(Array.isArray(data) ? data : []);
     } catch {
       setLinks([]);
+      toast.error("Failed to load payment links.");
     } finally {
       setLoading(false);
     }
@@ -43,6 +60,7 @@ export default function PaymentLinksPage() {
 
   useEffect(() => {
     loadLinks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -55,220 +73,235 @@ export default function PaymentLinksPage() {
       });
       setShowCreate(false);
       setForm({ name: "", description: "", amount: 0, currency: "NGN" });
+      toast.success("Payment link created successfully.");
       await loadLinks();
     } catch {
-      alert("Failed to create payment link");
+      toast.error("Failed to create payment link.");
     } finally {
       setCreating(false);
     }
   };
 
-  const handleDeactivate = async (id: string) => {
-    if (!confirm("Deactivate this payment link?")) return;
+  const handleDeactivate = async () => {
+    if (!linkToDeactivate) return;
+    setDeactivating(true);
     try {
-      await dashboard.deactivatePaymentLink(id);
+      await dashboard.deactivatePaymentLink(linkToDeactivate);
+      toast.success("Payment link deactivated.");
+      setLinkToDeactivate(null);
       await loadLinks();
     } catch {
-      alert("Failed to deactivate link");
+      toast.error("Failed to deactivate payment link.");
+    } finally {
+      setDeactivating(false);
     }
   };
 
   const handleCopy = async (text: string, id: string) => {
     await copyToClipboard(text);
     setCopied(id);
+    toast.success("Link URL copied to clipboard");
     setTimeout(() => setCopied(""), 2000);
   };
 
+  const columns: ColumnDef<PaymentLink>[] = [
+    {
+      header: "Name",
+      accessorKey: (row) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{row.name}</span>
+          <span className="text-xs text-[hsl(var(--muted-foreground))] truncate max-w-[200px]">
+            {row.description}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: "Amount",
+      accessorKey: (row) => (
+        <span className="font-medium text-base">
+          {formatCurrency(row.amount, row.currency)}
+        </span>
+      ),
+    },
+    {
+      header: "URL Link",
+      accessorKey: (row) => {
+        const url = `${checkoutBase}/api/v1/checkout/${row.slug}`;
+        return (
+          <div className="flex items-center gap-2 rounded-md bg-[hsl(var(--accent))]/50 px-2 py-1 max-w-[220px]">
+            <code className="flex-1 truncate text-xs text-[hsl(var(--muted-foreground))]">{url}</code>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopy(url, row.id);
+              }}
+              className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+              title="Copy link"
+            >
+              {copied === row.id ? (
+                <Check size={14} className="text-emerald-500" />
+              ) : (
+                <Copy size={14} />
+              )}
+            </button>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+              onClick={(e) => e.stopPropagation()}
+              title="Open link"
+            >
+              <ExternalLink size={14} />
+            </a>
+          </div>
+        );
+      },
+    },
+    {
+      header: "Status",
+      accessorKey: (row) => <StatusBadge status={row.active ? "active" : "inactive"} />,
+    },
+    {
+      header: "Created",
+      accessorKey: (row) => <span className="text-[hsl(var(--muted-foreground))]">{formatDate(row.created_at)}</span>,
+    },
+    {
+      header: "Actions",
+      className: "text-right",
+      accessorKey: (row) => (
+        row.active && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLinkToDeactivate(row.id);
+            }}
+            className="text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Deactivate"
+          >
+            <Trash2 size={16} />
+          </Button>
+        )
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Payment Links</h1>
-          <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            Create and manage shareable payment links
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex h-9 items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} />
-          Create Link
-        </button>
-      </div>
+      <PageHeader
+        title="Payment Links"
+        description="Create and manage shareable payment links"
+        action={{
+          label: "Create Link",
+          icon: Plus,
+          onClick: () => setShowCreate(true),
+        }}
+      />
 
-      {/* Links Grid */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
-        </div>
-      ) : links.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border bg-[hsl(var(--card))] py-16">
-          <Link2 size={40} className="mb-3 text-[hsl(var(--muted-foreground))] opacity-30" />
-          <p className="text-sm text-[hsl(var(--muted-foreground))]">No payment links yet</p>
-          <p className="text-xs text-[hsl(var(--muted-foreground))]">Create your first payment link to start collecting payments</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {links.map((link) => {
-            const url = `${checkoutBase}/api/v1/checkout/${link.slug}`;
-            return (
-              <div
-                key={link.id}
-                className={`rounded-xl border bg-[hsl(var(--card))] p-5 transition-shadow hover:shadow-md ${
-                  !link.active ? "opacity-60" : ""
-                }`}
-              >
-                <div className="mb-3 flex items-start justify-between">
-                  <div>
-                    <h3 className="font-medium">{link.name}</h3>
-                    <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-                      {link.description}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      link.active
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
-                        : "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
-                    }`}
-                  >
-                    {link.active ? "Active" : "Inactive"}
-                  </span>
-                </div>
-
-                <p className="mb-4 text-2xl font-semibold tracking-tight">
-                  {formatCurrency(link.amount, link.currency)}
-                </p>
-
-                {/* Link URL */}
-                <div className="mb-3 flex items-center gap-2 rounded-lg bg-[hsl(var(--accent))] px-3 py-2">
-                  <code className="flex-1 truncate text-xs">{url}</code>
-                  <button
-                    onClick={() => handleCopy(url, link.id)}
-                    className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                  >
-                    {copied === link.id ? (
-                      <Check size={14} className="text-emerald-500" />
-                    ) : (
-                      <Copy size={14} />
-                    )}
-                  </button>
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                  >
-                    <ExternalLink size={14} />
-                  </a>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-[hsl(var(--muted-foreground))]">
-                    Created {formatDate(link.created_at)}
-                  </span>
-                  {link.active && (
-                    <button
-                      onClick={() => handleDeactivate(link.id)}
-                      className="rounded-md p-1 text-[hsl(var(--muted-foreground))] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        data={links}
+        loading={loading}
+        emptyIcon={Link2}
+        emptyTitle="Create your first payment link"
+        emptyDescription="Start collecting payments quickly by sharing a secure payment link."
+        emptyCTA={{
+          label: "Create Payment Link",
+          onClick: () => setShowCreate(true),
+        }}
+      />
 
       {/* Create Modal */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-[hsl(var(--card))] shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h3 className="font-semibold">Create Payment Link</h3>
-              <button
-                onClick={() => setShowCreate(false)}
-                className="rounded-md p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]"
-              >
-                <X size={18} />
-              </button>
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create Payment Link</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreate} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Name</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Premium Plan Payment"
+                required
+                className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+              />
             </div>
-            <form onSubmit={handleCreate} className="space-y-4 px-6 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="One-time payment for premium features"
+                rows={2}
+                className="flex w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Name</label>
+                <label className="text-sm font-medium">Amount</label>
                 <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Premium Plan Payment"
+                  type="number"
+                  value={form.amount || ""}
+                  onChange={(e) =>
+                    setForm({ ...form, amount: parseFloat(e.target.value) || 0 })
+                  }
+                  placeholder="5000.00"
+                  min="0"
+                  step="0.01"
                   required
-                  className="flex h-10 w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
+                  className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Description</label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="One-time payment for premium features"
-                  rows={2}
-                  className="flex w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Amount</label>
-                  <input
-                    type="number"
-                    value={form.amount || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, amount: parseFloat(e.target.value) || 0 })
-                    }
-                    placeholder="5000.00"
-                    min="0"
-                    step="0.01"
-                    required
-                    className="flex h-10 w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Currency</label>
-                  <select
-                    value={form.currency}
-                    onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                    className="flex h-10 w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-                  >
-                    <option value="NGN">NGN</option>
-                    <option value="USD">USD</option>
-                    <option value="GHS">GHS</option>
-                    <option value="KES">KES</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreate(false)}
-                  className="h-9 rounded-lg border px-4 text-sm font-medium transition-colors hover:bg-[hsl(var(--accent))]"
+                <label className="text-sm font-medium">Currency</label>
+                <select
+                  value={form.currency}
+                  onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                  className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex h-9 items-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-90 disabled:opacity-50"
-                >
-                  {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
-                </button>
+                  <option value="NGN">NGN</option>
+                  <option value="USD">USD</option>
+                  <option value="GHS">GHS</option>
+                  <option value="KES">KES</option>
+                </select>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreate(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={creating}
+              >
+                {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Link
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!linkToDeactivate}
+        onOpenChange={(open) => !open && setLinkToDeactivate(null)}
+        title="Deactivate Payment Link"
+        description="Are you sure you want to deactivate this link? Customers will no longer be able to use it to make payments."
+        confirmLabel="Deactivate"
+        variant="destructive"
+        loading={deactivating}
+        onConfirm={handleDeactivate}
+      />
     </div>
   );
 }
