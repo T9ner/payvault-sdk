@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS provider_credentials CASCADE;
+DROP TABLE IF EXISTS api_keys CASCADE;
