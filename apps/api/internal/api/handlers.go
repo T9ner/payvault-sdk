@@ -659,7 +659,7 @@ func (h *Handlers) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	// Additional readiness check: verify DB connectivity
 	if h.config != nil && h.config.DatabaseURL != "" {
 		ctx := r.Context()
-		pool, err := pgxpool.Connect(ctx, h.config.DatabaseURL)
+		pool, err := pgxpool.New(ctx, h.config.DatabaseURL)
 		if err != nil {
 			health["status"] = "degraded"
 			health["db"] = "unreachable"
