@@ -123,7 +123,7 @@ export const dashboard = {
 // ── Payments (API-key-protected, but we call from dashboard context) ──
 export const payments = {
   charge: (data: ChargeRequest) =>
-    api.post<ChargeResponse>("/payments/charge", data).then((r) => r.data),
+    api.post<ChargeResponse>("/dashboard/transactions/charge", data).then((r) => r.data),
 
   listTransactions: async (params?: {
     page?: number;

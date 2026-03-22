@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 export default function LoginPage() {
   const handleGithubLogin = () => {
-    window.location.href = "http://localhost:8080/api/v1/auth/github";
+    window.location.href = "http://localhost:8081/api/v1/auth/github";
   };
 
   return (

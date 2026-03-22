@@ -54,7 +54,7 @@ func (s *TransactionService) InitiateCharge(ctx context.Context, merchantID stri
 	// 5. Insert transaction record (status: pending)
 	var txnID string
 	err = s.db.QueryRow(ctx, `
-		INSERT INTO transactions (merchant_id, reference, provider, amount, currency, customer_email, status, mode, metadata)
+		INSERT INTO transactions (merchant_id, reference, provider, amount, currency, email, status, environment, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)
 		RETURNING id
 	`, merchantID, ref, input.Provider, input.AmountKobo, input.Currency, input.Email, mode, input.Metadata).Scan(&txnID)
@@ -256,7 +256,7 @@ func (s *TransactionService) ListTransactions(ctx context.Context, merchantID st
 	}
 
 	rows, err := s.db.Query(ctx, `
-		SELECT id, reference, provider, amount, currency, customer_email, status, channel, mode, created_at
+		SELECT id, reference, provider, amount, currency, email, status, channel, environment, created_at
 		FROM transactions WHERE merchant_id = $1
 		ORDER BY created_at DESC LIMIT $2 OFFSET $3
 	`, merchantID, limit, offset)
@@ -288,13 +288,12 @@ func (s *TransactionService) LookupMerchantByReference(ctx context.Context, refe
 
 func (s *TransactionService) getMerchantProviderKey(ctx context.Context, merchantID, provider string) (string, error) {
 	var encryptedKey string
-	keyName := provider + "_secret_key"
 	err := s.db.QueryRow(ctx, `
-		SELECT credential_value FROM merchant_credentials
-		WHERE merchant_id = $1 AND credential_key = $2
-	`, merchantID, keyName).Scan(&encryptedKey)
+		SELECT encrypted_secret FROM provider_credentials
+		WHERE merchant_id = $1 AND provider = $2
+	`, merchantID, provider).Scan(&encryptedKey)
 	if err != nil {
-		return "", fmt.Errorf("no %s credentials found for merchant", provider)
+		return "", fmt.Errorf("no %s credentials found for merchant (save credentials in Settings first)", provider)
 	}
 	return s.crypto.Decrypt(encryptedKey)
 }

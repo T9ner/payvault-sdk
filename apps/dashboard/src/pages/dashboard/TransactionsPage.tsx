@@ -1,12 +1,15 @@
 import { useEffect, useState, useRef } from "react";
 import { payments } from "@/lib/api";
 import { formatCurrency, formatDate, copyToClipboard } from "@/lib/formatters";
-import type { Transaction } from "@/lib/types";
+import type { Transaction, ChargeRequest } from "@/lib/types";
 import {
   ArrowLeftRight,
   Copy,
   Check,
   RotateCcw,
+  Plus,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -20,6 +23,14 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -44,9 +55,20 @@ export default function TransactionsPage() {
   const [refunding, setRefunding] = useState(false);
   const [confirmRefundOpen, setConfirmRefundOpen] = useState(false);
   
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createdTx, setCreatedTx] = useState<{ reference: string; authorization_url: string } | null>(null);
+  
   const { toast } = useToast();
   const perPage = 20;
   const hasFetched = useRef(false);
+  
+  const [form, setForm] = useState<ChargeRequest>({
+    amount: 0,
+    currency: "NGN",
+    email: "",
+    provider: "paystack",
+  });
 
   const loadTransactions = async () => {
     setLoading(true);
@@ -99,6 +121,41 @@ export default function TransactionsPage() {
     }
   };
 
+  const handleCreateTransaction = async () => {
+    if (!form.email || form.amount <= 0) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+    setCreating(true);
+    try {
+      const response = await payments.charge({
+        ...form,
+        amount: Math.round(form.amount * 100), // Convert to kobo
+      });
+      setCreatedTx({
+        reference: response.reference,
+        authorization_url: response.authorization_url,
+      });
+      toast.success("Transaction created! Redirect to payment page.");
+      await loadTransactions();
+    } catch (err) {
+      toast.error("Failed to create transaction. Make sure provider credentials are configured.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const resetCreateForm = () => {
+    setForm({
+      amount: 0,
+      currency: "NGN",
+      email: "",
+      provider: "paystack",
+    });
+    setCreatedTx(null);
+    setCreateModalOpen(false);
+  };
+
   const columns: ColumnDef<Transaction>[] = [
     {
       header: "Reference",
@@ -146,6 +203,11 @@ export default function TransactionsPage() {
       <PageHeader
         title="Transactions"
         description="View and manage all payment transactions"
+        action={{
+          label: "Create Transaction",
+          icon: Plus,
+          onClick: () => setCreateModalOpen(true),
+        }}
       />
 
       {/* Status Filter Tabs */}
@@ -237,6 +299,97 @@ export default function TransactionsPage() {
         loading={refunding}
         onConfirm={handleRefund}
       />
+
+      {/* Create Transaction Modal */}
+      <Dialog open={createModalOpen} onOpenChange={(open) => !open && resetCreateForm()}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create Transaction</DialogTitle>
+            <DialogDescription>
+              Initialize a new payment transaction. Customer will be redirected to payment page.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {createdTx ? (
+            <div className="space-y-4 py-4">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/40 dark:bg-emerald-900/20">
+                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300 mb-2">
+                  Transaction Created Successfully!
+                </p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-3">
+                  Reference: <span className="font-mono">{createdTx.reference}</span>
+                </p>
+                <a
+                  href={createdTx.authorization_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors"
+                >
+                  <ExternalLink size={16} />
+                  Open Payment Page
+                </a>
+              </div>
+              <Button variant="outline" onClick={resetCreateForm} className="w-full">
+                Create Another
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Customer Email *</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="customer@example.com"
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Amount (NGN) *</label>
+                <input
+                  type="number"
+                  value={form.amount || ""}
+                  onChange={(e) => setForm({ ...form, amount: parseFloat(e.target.value) || 0 })}
+                  placeholder="5000.00"
+                  min="1"
+                  step="0.01"
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Provider</label>
+                <select
+                  value={form.provider}
+                  onChange={(e) => setForm({ ...form, provider: e.target.value })}
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]"
+                >
+                  <option value="paystack">Paystack</option>
+                  <option value="flutterwave">Flutterwave</option>
+                </select>
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" onClick={() => setCreateModalOpen(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateTransaction} disabled={creating} className="flex-1">
+                  {creating ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Transaction"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

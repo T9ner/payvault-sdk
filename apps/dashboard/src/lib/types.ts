@@ -33,7 +33,7 @@ export interface Transaction {
   merchant_id: string;
   provider: string;
   provider_ref?: string;
-  environment: string;
+  mode: string;
   amount: number;
   currency: string;
   status: TransactionStatus;
@@ -44,7 +44,7 @@ export interface Transaction {
   authorization_url?: string;
   paid_at?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export type TransactionStatus =

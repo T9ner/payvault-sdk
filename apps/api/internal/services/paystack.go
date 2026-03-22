@@ -30,6 +30,11 @@ func (p *PaystackProvider) Name() string { return "paystack" }
 
 // InitiateCharge creates a Paystack transaction and returns the authorization URL.
 func (p *PaystackProvider) InitiateCharge(ctx context.Context, req ChargeRequest) (*ChargeResponse, error) {
+	secretKey, _ := ctx.Value(ctxKeySecretKey).(string)
+	if secretKey == "" {
+		return nil, fmt.Errorf("paystack: secret key required in context")
+	}
+
 	body := map[string]interface{}{
 		"reference":    req.Reference,
 		"amount":       req.AmountKobo,
@@ -41,7 +46,7 @@ func (p *PaystackProvider) InitiateCharge(ctx context.Context, req ChargeRequest
 		body["metadata"] = req.Metadata
 	}
 
-	data, err := p.doRequest(ctx, "POST", "/transaction/initialize", body, req.Metadata["__secret_key"].(string))
+	data, err := p.doRequest(ctx, "POST", "/transaction/initialize", body, secretKey)
 	if err != nil {
 		return nil, fmt.Errorf("paystack initiate charge: %w", err)
 	}

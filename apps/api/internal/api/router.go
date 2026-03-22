@@ -99,6 +99,7 @@ func NewRouter(h *Handlers, authMW *middleware.AuthMiddleware, rateLimiter *midd
 			r.Route("/transactions", func(r chi.Router) {
 				r.Get("/", h.ListTransactions)
 				r.Get("/activity", h.RecentActivity)
+				r.Post("/charge", h.InitiateCharge) // Create transaction from dashboard
 				r.Get("/{reference}/verify", h.VerifyTransaction)
 				r.Post("/refund", h.RefundTransaction)
 				r.Get("/{reference}/status", h.GetTransactionStatus)

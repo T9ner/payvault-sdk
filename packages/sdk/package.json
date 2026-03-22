@@ -25,7 +25,9 @@
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "payments",
@@ -50,9 +52,10 @@
   },
   "homepage": "https://github.com/T9ner/payvault-sdk#readme",
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.19.37",
     "tsup": "^8.0.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.0"
   },
   "engines": {
     "node": ">=18.0.0"
