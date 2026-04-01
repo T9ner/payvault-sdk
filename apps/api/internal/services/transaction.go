@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,10 +17,14 @@ type TransactionService struct {
 	db        *pgxpool.Pool
 	providers *ProviderRegistry
 	crypto    *CryptoService
-	queue     interface{ Enqueue(jobType string, payload []byte) error }
+	queue     interface {
+		Enqueue(jobType string, payload []byte) error
+	}
 }
 
-func NewTransactionService(db *pgxpool.Pool, providers *ProviderRegistry, crypto *CryptoService, queue interface{ Enqueue(jobType string, payload []byte) error }) *TransactionService {
+func NewTransactionService(db *pgxpool.Pool, providers *ProviderRegistry, crypto *CryptoService, queue interface {
+	Enqueue(jobType string, payload []byte) error
+}) *TransactionService {
 	return &TransactionService{
 		db:        db,
 		providers: providers,
@@ -74,14 +79,18 @@ func (s *TransactionService) InitiateCharge(ctx context.Context, merchantID stri
 	})
 	if err != nil {
 		// Mark transaction as failed
-		_, _ = s.db.Exec(ctx, `UPDATE transactions SET status = 'failed', updated_at = NOW() WHERE id = $1`, txnID)
+		if _, err := s.db.Exec(ctx, `UPDATE transactions SET status = 'failed', updated_at = NOW() WHERE id = $1`, txnID); err != nil {
+			fmt.Fprintf(os.Stderr, "[WARN] failed to mark transaction as failed: %v\n", err)
+		}
 		return nil, fmt.Errorf("provider charge failed: %w", err)
 	}
 
 	// 7. Update with provider reference
-	_, _ = s.db.Exec(ctx, `
-		UPDATE transactions SET provider_reference = $1, updated_at = NOW() WHERE id = $2
-	`, chargeResp.ProviderRef, txnID)
+	if _, err := s.db.Exec(ctx, `
+		UPDATE transactions SET provider_ref = $1, updated_at = NOW() WHERE id = $2
+	`, chargeResp.ProviderRef, txnID); err != nil {
+		fmt.Fprintf(os.Stderr, "[WARN] failed to update transaction provider ref: %v\n", err)
+	}
 
 	// 8. Log to audit trail
 	s.auditLog(ctx, merchantID, txnID, "transaction.initiated", fmt.Sprintf("provider=%s amount=%d%s", input.Provider, input.AmountKobo, input.Currency))
@@ -102,7 +111,7 @@ func (s *TransactionService) VerifyTransaction(ctx context.Context, merchantID, 
 	var amountKobo int64
 	var currency string
 	err := s.db.QueryRow(ctx, `
-		SELECT id, provider, status, provider_reference, amount, currency
+		SELECT id, provider, status, provider_ref, amount, currency
 		FROM transactions WHERE merchant_id = $1 AND reference = $2
 	`, merchantID, reference).Scan(&txnID, &provider, &status, &providerRef, &amountKobo, &currency)
 	if err != nil {
@@ -175,7 +184,7 @@ func (s *TransactionService) RefundTransaction(ctx context.Context, merchantID, 
 	var originalAmount int64
 	var currency string
 	err := s.db.QueryRow(ctx, `
-		SELECT id, provider, status, provider_reference, amount, currency
+		SELECT id, provider, status, provider_ref, amount, currency
 		FROM transactions WHERE merchant_id = $1 AND reference = $2
 	`, merchantID, reference).Scan(&txnID, &provider, &status, &providerRef, &originalAmount, &currency)
 	if err != nil {
@@ -222,17 +231,19 @@ func (s *TransactionService) RefundTransaction(ctx context.Context, merchantID, 
 	// 4. Record refund
 	var refundID string
 	err = s.db.QueryRow(ctx, `
-		INSERT INTO refunds (transaction_id, amount, currency, status, provider_reference)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO refunds (merchant_id, transaction_id, provider, provider_ref, amount, currency, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id
-	`, txnID, refundAmount, currency, refundResp.Status, refundResp.ProviderRef).Scan(&refundID)
+	`, merchantID, txnID, provider, refundResp.ProviderRef, refundAmount, currency, refundResp.Status).Scan(&refundID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to record refund: %w", err)
 	}
 
 	// 5. If fully refunded, update transaction status
 	if totalRefunded+refundAmount >= originalAmount {
-		_, _ = s.db.Exec(ctx, `UPDATE transactions SET status = 'refunded', updated_at = NOW() WHERE id = $1`, txnID)
+		if _, err := s.db.Exec(ctx, `UPDATE transactions SET status = 'refunded', updated_at = NOW() WHERE id = $1`, txnID); err != nil {
+			fmt.Fprintf(os.Stderr, "[WARN] failed to mark transaction as refunded: %v\n", err)
+		}
 	}
 
 	s.auditLog(ctx, merchantID, txnID, "transaction.refunded", fmt.Sprintf("refund_id=%s amount=%d%s", refundID, refundAmount, currency))
@@ -280,7 +291,7 @@ func (s *TransactionService) ListTransactions(ctx context.Context, merchantID st
 // LookupMerchantByReference finds the merchant who owns a transaction by its reference.
 func (s *TransactionService) LookupMerchantByReference(ctx context.Context, reference string, merchantID *string) error {
 	return s.db.QueryRow(ctx, `
-		SELECT merchant_id FROM transactions WHERE reference = $1 OR provider_reference = $1
+		SELECT merchant_id FROM transactions WHERE reference = $1 OR provider_ref = $1
 	`, reference).Scan(merchantID)
 }
 
@@ -299,10 +310,12 @@ func (s *TransactionService) getMerchantProviderKey(ctx context.Context, merchan
 }
 
 func (s *TransactionService) auditLog(ctx context.Context, merchantID, resourceID, action, details string) {
-	_, _ = s.db.Exec(ctx, `
-		INSERT INTO audit_log (merchant_id, action, resource_type, resource_id, details)
-		VALUES ($1, $2, 'transaction', $3, $4)
-	`, merchantID, action, resourceID, details)
+	if _, err := s.db.Exec(ctx, `
+		INSERT INTO audit_log (merchant_id, actor, action, resource_type, resource_id, changes)
+		VALUES ($1, $2, $3, 'transaction', $4, $5)
+	`, merchantID, "merchant:"+merchantID, action, resourceID, jsonbOrEmpty(map[string]interface{}{"msg": details})); err != nil {
+		fmt.Fprintf(os.Stderr, "[WARN] audit_log insert failed: %v\n", err)
+	}
 }
 
 func (s *TransactionService) enqueueWebhook(ctx context.Context, merchantID, txnID, event string) {
