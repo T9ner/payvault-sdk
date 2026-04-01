@@ -164,7 +164,7 @@ func (s *SubscriptionService) CancelSubscription(ctx context.Context, merchantID
 		if !CanTransition(status, "canceled") {
 			return fmt.Errorf("cannot cancel immediately from status %s", status)
 		}
-		
+
 		// Attempt provider cancellation if provider code exists
 		// (Assuming provider sub exists, in reality we'd pull it)
 		// For now we just mark local cancel.
@@ -187,7 +187,7 @@ func (s *SubscriptionService) CancelSubscription(ctx context.Context, merchantID
 func (s *SubscriptionService) getMerchantProviderKey(ctx context.Context, merchantID, provider string) (string, error) {
 	var encryptedKey string
 	err := s.db.QueryRow(ctx, `
-		SELECT secret_key_enc FROM merchant_providers
+		SELECT encrypted_secret FROM provider_credentials
 		WHERE merchant_id = $1 AND provider = $2
 	`, merchantID, provider).Scan(&encryptedKey)
 	if err != nil {

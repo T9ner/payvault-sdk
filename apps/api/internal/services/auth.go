@@ -31,12 +31,6 @@ type Merchant struct {
 	Email        string `json:"email"`
 }
 
-// APIKeyPair holds a newly generated public + secret key pair.
-type APIKeyPair struct {
-	PublicKey string `json:"public_key"`
-	SecretKey string `json:"secret_key"`
-}
-
 // ── AuthService ──────────────────────────────────────────────────
 
 // AuthService handles merchant registration, login, JWT tokens, API keys,
@@ -168,50 +162,6 @@ func (s *AuthService) GenerateJWT(merchantID, email string) (string, error) {
 	return token.SignedString([]byte(s.jwtSecret))
 }
 
-// ── API Key Generation ───────────────────────────────────────────
-
-// GenerateAPIKeyPair generates pk_<mode>_<random> + sk_<mode>_<random> key pairs.
-// Matches handlers.go: h.auth.GenerateAPIKeyPair(ctx, merchantID, mode, label)
-func (s *AuthService) GenerateAPIKeyPair(ctx context.Context, merchantID, mode, label string) (*APIKeyPair, error) {
-	publicRaw, err := generateRandomAPIKey(32)
-	if err != nil {
-		return nil, err
-	}
-	secretRaw, err := generateRandomAPIKey(32)
-	if err != nil {
-		return nil, err
-	}
-
-	publicKey := fmt.Sprintf("pk_%s_%s", mode, publicRaw)
-	secretKey := fmt.Sprintf("sk_%s_%s", mode, secretRaw)
-
-	// Hash for storage
-	pkHash, _ := bcrypt.GenerateFromPassword([]byte(publicKey), bcrypt.DefaultCost)
-	skHash, _ := bcrypt.GenerateFromPassword([]byte(secretKey), bcrypt.DefaultCost)
-
-	// Store public key
-	_, err = s.db.Exec(ctx,
-		`INSERT INTO api_keys (merchant_id, prefix, key_hash, last_four, environment, is_secret, label)
-		 VALUES ($1, $2, $3, $4, $5, false, $6)`,
-		merchantID, fmt.Sprintf("pk_%s", mode), string(pkHash), publicKey[len(publicKey)-4:], mode, label,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("store public key: %w", err)
-	}
-
-	// Store secret key
-	_, err = s.db.Exec(ctx,
-		`INSERT INTO api_keys (merchant_id, prefix, key_hash, last_four, environment, is_secret, label)
-		 VALUES ($1, $2, $3, $4, $5, true, $6)`,
-		merchantID, fmt.Sprintf("sk_%s", mode), string(skHash), secretKey[len(secretKey)-4:], mode, label,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("store secret key: %w", err)
-	}
-
-	return &APIKeyPair{PublicKey: publicKey, SecretKey: secretKey}, nil
-}
-
 // ValidateAPIKey checks a raw API key against stored hashes.
 // Returns (merchantID string, environment string, isSecret bool, error).
 // Matches middleware auth.go: am.authService.ValidateAPIKey(ctx, rawKey)
@@ -248,45 +198,6 @@ func (s *AuthService) ValidateAPIKey(ctx context.Context, rawKey string) (string
 	}
 
 	return "", "", false, ErrInvalidAPIKey
-}
-
-// ── Provider Credentials ─────────────────────────────────────────
-
-// StoreProviderCredentials encrypts and stores a merchant's payment provider keys.
-// Matches handlers.go: h.auth.StoreProviderCredentials(ctx, merchantID, provider, secretKey, publicKey)
-func (s *AuthService) StoreProviderCredentials(ctx context.Context, merchantID, provider, secretKey, publicKey string) error {
-	encSecret, err := s.crypto.Encrypt(secretKey)
-	if err != nil {
-		return fmt.Errorf("encrypt secret key: %w", err)
-	}
-
-	// Store both the encrypted secret key and the public key
-	// credential_key format: "paystack_secret_key", "paystack_public_key"
-	_, err = s.db.Exec(ctx,
-		`INSERT INTO merchant_credentials (merchant_id, credential_key, credential_value)
-		 VALUES ($1, $2, $3)
-		 ON CONFLICT (merchant_id, credential_key)
-		 DO UPDATE SET credential_value = $3, updated_at = NOW()`,
-		merchantID, provider+"_secret_key", encSecret,
-	)
-	if err != nil {
-		return fmt.Errorf("store secret key: %w", err)
-	}
-
-	if publicKey != "" {
-		_, err = s.db.Exec(ctx,
-			`INSERT INTO merchant_credentials (merchant_id, credential_key, credential_value)
-			 VALUES ($1, $2, $3)
-			 ON CONFLICT (merchant_id, credential_key)
-			 DO UPDATE SET credential_value = $3, updated_at = NOW()`,
-			merchantID, provider+"_public_key", publicKey,
-		)
-		if err != nil {
-			return fmt.Errorf("store public key: %w", err)
-		}
-	}
-
-	return nil
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
