@@ -1,0 +1,17 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "name": "PayVault SDK",
+  "readme": "README.md",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "includeVersion": true,
+  "exclude": ["**/*.test.ts", "**/*.spec.ts"],
+  "plugin": [],
+  "categorizeByGroup": true,
+  "navigationLinks": {
+    "GitHub": "https://github.com/T9ner/payvault-sdk",
+    "npm": "https://www.npmjs.com/package/payvault-sdk"
+  }
+}

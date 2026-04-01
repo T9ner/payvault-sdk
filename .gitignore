@@ -34,3 +34,10 @@ npm-debug.log*
 
 # Test
 coverage/
+
+# Generated docs
+docs/
+
+# agent skills
+.agent/
+

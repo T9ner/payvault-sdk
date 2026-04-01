@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"payvault-api/internal/middleware"
-
+	"github.com/go-chi/cors"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 )
@@ -12,6 +12,16 @@ import (
 // NewRouter builds the full chi router with all routes and middleware.
 func NewRouter(h *Handlers, authMW *middleware.AuthMiddleware, rateLimiter *middleware.RateLimiter) http.Handler {
 	r := chi.NewRouter()
+
+	// CORS
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000", "http://127.0.0.1:3000"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
 	// Global middleware
 	r.Use(chimw.Logger)
