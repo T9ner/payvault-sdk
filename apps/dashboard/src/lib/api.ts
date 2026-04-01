@@ -38,6 +38,28 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => {
+    if (
+      response.data &&
+      typeof response.data === "object" &&
+      "success" in response.data &&
+      response.data.success === true &&
+      "data" in response.data
+    ) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
+  (error) => {
+    const apiError = error.response?.data?.error;
+    if (apiError && typeof apiError === "string") {
+      error.message = apiError;
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ── NO automatic 401 redirect interceptor ───────────────────
 // Each page handles its own errors via try/catch or Promise.allSettled.
 // The old interceptor was nuking the cookie and redirecting on ANY 401,

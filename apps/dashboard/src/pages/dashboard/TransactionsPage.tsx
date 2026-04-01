@@ -114,8 +114,8 @@ export default function TransactionsPage() {
       setConfirmRefundOpen(false);
       setSelected(null);
       await loadTransactions();
-    } catch {
-      toast.error("Refund failed to process.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to process refund.");
     } finally {
       setRefunding(false);
     }
@@ -138,8 +138,8 @@ export default function TransactionsPage() {
       });
       toast.success("Transaction created! Redirect to payment page.");
       await loadTransactions();
-    } catch (err) {
-      toast.error("Failed to create transaction. Make sure provider credentials are configured.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create transaction.");
     } finally {
       setCreating(false);
     }
@@ -268,7 +268,10 @@ export default function TransactionsPage() {
                 <DetailRow label="Reference" value={selected.reference} />
                 <DetailRow label="Provider" value={selected.provider.toUpperCase()} />
                 <DetailRow label="Created At" value={formatDate(selected.created_at)} />
-                <DetailRow label="Last Updated" value={formatDate(selected.updated_at)} />
+                <DetailRow
+                  label="Last Updated"
+                  value={formatDate(selected.updated_at || selected.created_at)}
+                />
               </div>
 
               {selected.status === "success" && (
