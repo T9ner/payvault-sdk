@@ -78,8 +78,7 @@ func (s *TransactionService) InitiateCharge(ctx context.Context, merchantID stri
 		Metadata:    input.Metadata,
 	})
 	if err != nil {
-		// Mark transaction as failed
-		if _, err := s.db.Exec(ctx, `UPDATE transactions SET status = 'failed', updated_at = NOW() WHERE id = $1`, txnID); err != nil {
+		if _, err := s.db.Exec(ctx, `UPDATE transactions SET status = 'failed', failed_at = NOW(), updated_at = NOW() WHERE id = $1`, txnID); err != nil {
 			fmt.Fprintf(os.Stderr, "[WARN] failed to mark transaction as failed: %v\n", err)
 		}
 		return nil, fmt.Errorf("provider charge failed: %w", err)
@@ -148,10 +147,16 @@ func (s *TransactionService) VerifyTransaction(ctx context.Context, merchantID, 
 	}
 
 	// 4. Update transaction status
-	_, err = s.db.Exec(ctx, `
-		UPDATE transactions SET status = $1, channel = $2, provider_response = $3, updated_at = NOW()
-		WHERE id = $4
-	`, verifyResp.Status, verifyResp.Channel, verifyResp.RawResponse, txnID)
+	paidAtClause := ""
+	if verifyResp.Status == "success" {
+		paidAtClause = ", paid_at = NOW()"
+	} else if verifyResp.Status == "failed" {
+		paidAtClause = ", failed_at = NOW()"
+	}
+	_, err = s.db.Exec(ctx, fmt.Sprintf(`
+			UPDATE transactions SET status = $1, channel = $2, provider_response = $3%s, updated_at = NOW()
+			WHERE id = $4
+		`, paidAtClause), verifyResp.Status, verifyResp.Channel, verifyResp.RawResponse, txnID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update transaction: %w", err)
 	}
@@ -241,7 +246,7 @@ func (s *TransactionService) RefundTransaction(ctx context.Context, merchantID, 
 
 	// 5. If fully refunded, update transaction status
 	if totalRefunded+refundAmount >= originalAmount {
-		if _, err := s.db.Exec(ctx, `UPDATE transactions SET status = 'refunded', updated_at = NOW() WHERE id = $1`, txnID); err != nil {
+		if _, err := s.db.Exec(ctx, `UPDATE transactions SET status = 'refunded', refunded_at = NOW(), updated_at = NOW() WHERE id = $1`, txnID); err != nil {
 			fmt.Fprintf(os.Stderr, "[WARN] failed to mark transaction as refunded: %v\n", err)
 		}
 	}

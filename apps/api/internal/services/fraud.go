@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,9 +32,9 @@ type FraudEvent struct {
 }
 
 type UpsertFraudRuleRequest struct {
-	RuleType string `json:"rule_type"` // "velocity" | "amount_limit" | "duplicate" | "geo_block"
+	RuleType  string `json:"rule_type"` // "velocity" | "amount_limit" | "duplicate" | "geo_block"
 	Threshold int    `json:"threshold"`
-	Action    string `json:"action"`    // "flag" | "block"
+	Action    string `json:"action"` // "flag" | "block"
 	Enabled   bool   `json:"enabled"`
 }
 
@@ -242,17 +243,18 @@ func (s *FraudService) listActiveRules(ctx context.Context, merchantID string) (
 }
 
 func (s *FraudService) logEvent(ctx context.Context, input FraudCheckInput, ruleType string, score int, action string) {
-	// Usually transactions might not be inserted yet when validation runs, but per prompt it wants the ID.
-	// Typically we'd use a zero-uuid if transaction ID isn't resolved, but we'll fulfill the schema logic.
 	txID := input.TransactionID
 	if txID == "" {
-		txID = "00000000-0000-0000-0000-000000000000" // Fallback fallback if strictly tied
+		txID = "00000000-0000-0000-0000-000000000000"
 	}
 
-	_, _ = s.db.Exec(ctx, `
+	metadata := map[string]interface{}{"email": input.Email, "ip": input.IPAddress}
+	if _, err := s.db.Exec(ctx, `
 		INSERT INTO fraud_events (merchant_id, transaction_id, rule_type, risk_score, action_taken, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6)
-	`, input.MerchantID, txID, ruleType, score, action, fmt.Sprintf(`{"email":%q, "ip":%q}`, input.Email, input.IPAddress))
+	`, input.MerchantID, txID, ruleType, score, action, metadata); err != nil {
+		fmt.Fprintf(os.Stderr, "[WARN] fraud event log failed: %v\n", err)
+	}
 }
 
 func (s *FraudService) incrementCounter(ctx context.Context, key string, window time.Duration) int64 {
