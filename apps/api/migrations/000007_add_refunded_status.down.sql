@@ -1,0 +1,3 @@
+-- PostgreSQL cannot remove enum values; this is a no-op.
+-- To revert, you would need to recreate the type, which requires updating all dependent columns.
+-- This migration is intentionally left as a no-op for safety.
