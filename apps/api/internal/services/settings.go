@@ -94,7 +94,7 @@ func (s *SettingsService) RevokeAPIKey(ctx context.Context, merchantID, keyID st
 // SaveProviderCredentials encrypts the given 3rd party secret key using AES-256-GCM before writing to the Database
 func (s *SettingsService) SaveProviderCredentials(ctx context.Context, merchantID string, req SaveProviderCredentialsRequest) error {
 	provider := strings.ToLower(strings.TrimSpace(req.Provider))
-	if provider != "paystack" && provider != "flutterwave" {
+	if provider != "paystack" && provider != "flutterwave" && provider != "monnify" && provider != "squad" {
 		return errors.New("unsupported provider")
 	}
 
