@@ -31,10 +31,11 @@ export default function WebhooksPage() {
     setLoading(true);
     try {
       const data = await dashboard.listWebhookLogs({ page, limit: perPage });
-      setLogs(Array.isArray(data) ? data : []);
-    } catch {
+      const entries = Array.isArray(data) ? data : (data as any)?.data || [];
+      setLogs(entries);
+    } catch (err: any) {
       setLogs([]);
-      toast.error("Failed to load webhook logs.");
+      toast.error(err.message || "Failed to load webhook logs.");
     } finally {
       setLoading(false);
     }
@@ -53,8 +54,8 @@ export default function WebhooksPage() {
       toast.success("Webhook retry successfully triggered.");
       setLogToRetry(null);
       await loadLogs();
-    } catch {
-      toast.error("Webhook retry failed to queue.");
+    } catch (err: any) {
+      toast.error(err.message || "Webhook retry failed.");
     } finally {
       setRetrying(false);
     }

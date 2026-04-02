@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { dashboard } from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/formatters";
+import { formatDate } from "@/lib/formatters";
 import type { Subscription, CreatePlanRequest } from "@/lib/types";
 import {
   RefreshCw,
@@ -24,6 +24,7 @@ import {
 
 export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -43,11 +44,16 @@ export default function SubscriptionsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await dashboard.listSubscriptions();
-      setSubscriptions(Array.isArray(data) ? data : []);
-    } catch {
+      const [subsRaw, plansRaw] = await Promise.all([
+        dashboard.listSubscriptions().catch(() => null),
+        dashboard.listPlans().catch(() => []),
+      ]);
+      setSubscriptions(Array.isArray(subsRaw) ? subsRaw : (subsRaw as any)?.subscriptions || []);
+      setPlans(Array.isArray(plansRaw) ? plansRaw : []);
+    } catch (err: any) {
       setSubscriptions([]);
-      toast.error("Failed to load subscriptions.");
+      setPlans([]);
+      toast.error(err.message || "Failed to load subscriptions.");
     } finally {
       setLoading(false);
     }
@@ -70,8 +76,8 @@ export default function SubscriptionsPage() {
       setPlanForm({ name: "", amount: 0, currency: "NGN", interval: "monthly" });
       toast.success("Subscription plan created successfully.");
       await loadData();
-    } catch {
-      toast.error("Failed to create plan.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create plan.");
     } finally {
       setCreating(false);
     }
@@ -85,8 +91,8 @@ export default function SubscriptionsPage() {
       toast.success("Subscription cancelled successfully.");
       setSubToCancel(null);
       await loadData();
-    } catch {
-      toast.error("Failed to cancel subscription.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to cancel subscription.");
     } finally {
       setCancelling(false);
     }
@@ -151,6 +157,22 @@ export default function SubscriptionsPage() {
           onClick: () => setShowCreatePlan(true),
         }}
       />
+
+      {plans.length > 0 && (
+        <div className="rounded-xl border bg-[hsl(var(--card))] p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold">Subscription Plans ({plans.length})</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {plans.map((plan: any) => (
+              <div key={plan.id} className="rounded-lg border p-3 text-sm">
+                <p className="truncate font-medium">{plan.name}</p>
+                <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                  {plan.prices?.length || 0} price(s)
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <DataTable
         columns={columns}
