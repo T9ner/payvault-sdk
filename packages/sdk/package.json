@@ -34,6 +34,8 @@
     "payments",
     "paystack",
     "flutterwave",
+    "monnify",
+    "squad",
     "africa",
     "fintech",
     "checkout",
@@ -46,12 +48,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/T9ner/payvault-sdk.git"
+    "url": "https://github.com/T9ner/payvault.git"
   },
   "bugs": {
-    "url": "https://github.com/T9ner/payvault-sdk/issues"
+    "url": "https://github.com/T9ner/payvault/issues"
   },
-  "homepage": "https://github.com/T9ner/payvault-sdk#readme",
+  "homepage": "https://github.com/T9ner/payvault#readme",
   "devDependencies": {
     "@types/node": "^20.19.37",
     "tsup": "^8.0.0",
