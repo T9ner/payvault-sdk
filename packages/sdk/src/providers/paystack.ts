@@ -11,6 +11,9 @@ import type {
   SubscriptionConfig,
   SubscriptionResult,
   PayVaultConfig,
+  BulkTransferConfig,
+  BulkTransferItem,
+  BulkTransferResult,
 } from '../types';
 import { HttpClient } from '../http';
 import {
@@ -273,6 +276,88 @@ export class PaystackProvider implements Provider {
             ? 'pending'
             : 'failed',
       raw: response.data,
+    };
+  }
+
+  async bulkTransfer(config: BulkTransferConfig): Promise<BulkTransferResult> {
+    const currency = this.defaultCurrency;
+    const recipientsWithCodes: Array<{ recipientCode: string }> = [];
+
+    for (let index = 0; index < config.recipients.length; index += 10) {
+      const chunk = config.recipients.slice(index, index + 10);
+      const chunkResults = await Promise.all(
+        chunk.map(async (recipient) => {
+          const response = await this.http.post(
+            `${this.baseUrl}/transferrecipient`,
+            {
+              type: 'nuban',
+              name: recipient.accountName,
+              account_number: recipient.accountNumber,
+              bank_code: recipient.bankCode,
+              currency: recipient.currency ?? currency,
+            },
+            this.headers()
+          );
+
+          return {
+            recipientCode: response.data.data.recipient_code,
+          };
+        })
+      );
+      recipientsWithCodes.push(...chunkResults);
+    }
+
+    const transfers = config.recipients.map((recipient, index) => ({
+      amount: toMinorUnits(recipient.amount, recipient.currency ?? currency),
+      recipient: recipientsWithCodes[index].recipientCode,
+      reason: recipient.narration ?? config.title ?? 'PayVault bulk transfer',
+      reference: recipient.reference ?? generateReference(),
+    }));
+
+    const response = await this.http.post(
+      `${this.baseUrl}/transfer/bulk`,
+      {
+        source: config.source ?? 'balance',
+        transfers,
+      },
+      this.headers()
+    );
+    const result = Array.isArray(response.data.data) ? response.data.data : [];
+
+    const items: BulkTransferItem[] = config.recipients.map((recipient, index) => ({
+      reference: transfers[index].reference,
+      accountNumber: recipient.accountNumber,
+      bankCode: recipient.bankCode,
+      accountName: recipient.accountName,
+      amount: recipient.amount,
+      currency: recipient.currency ?? currency,
+      narration: recipient.narration,
+      status:
+        result[index]?.status === 'success'
+          ? 'success'
+          : result[index]?.status === 'failed'
+            ? 'failed'
+            : 'pending',
+      failureReason: result[index]?.failure_reason ?? result[index]?.reason,
+      providerReference: result[index]?.transfer_code,
+    }));
+
+    const successCount = items.filter(item => item.status === 'success').length;
+    const failedCount = items.filter(item => item.status === 'failed').length;
+
+    return {
+      batchReference: result[0]?.transfer_code ?? generateReference(),
+      status:
+        failedCount === items.length
+          ? 'failed'
+          : failedCount === 0
+            ? 'success'
+            : 'pending',
+      items,
+      total: items.length,
+      successCount,
+      failedCount,
+      rawResponse: response.data,
     };
   }
 

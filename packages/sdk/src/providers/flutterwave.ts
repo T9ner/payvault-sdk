@@ -9,6 +9,9 @@ import type {
   RefundResult,
   WebhookEvent,
   PayVaultConfig,
+  BulkTransferConfig,
+  BulkTransferItem,
+  BulkTransferResult,
 } from '../types';
 import { HttpClient } from '../http';
 import {
@@ -285,6 +288,50 @@ export class FlutterwaveProvider implements Provider {
       currency,
       status: data.status === 'completed' ? 'processed' : 'pending',
       raw: response.data,
+    };
+  }
+
+  async bulkTransfer(config: BulkTransferConfig): Promise<BulkTransferResult> {
+    const currency = this.defaultCurrency;
+
+    const bulk_data = config.recipients.map((recipient) => ({
+      bank_code: recipient.bankCode,
+      account_number: recipient.accountNumber,
+      amount: recipient.amount,
+      currency: recipient.currency ?? currency,
+      narration: recipient.narration ?? config.title ?? 'PayVault bulk transfer',
+      reference: recipient.reference ?? generateReference(),
+    }));
+
+    const response = await this.http.post(
+      `${this.baseUrl}/bulk-transfers`,
+      {
+        title: config.title ?? 'PayVault bulk transfer',
+        bulk_data,
+      },
+      this.headers()
+    );
+    const result = response.data.data;
+
+    const items: BulkTransferItem[] = config.recipients.map((recipient, index) => ({
+      reference: bulk_data[index].reference,
+      accountNumber: recipient.accountNumber,
+      bankCode: recipient.bankCode,
+      accountName: recipient.accountName,
+      amount: recipient.amount,
+      currency: recipient.currency ?? currency,
+      narration: recipient.narration,
+      status: 'pending',
+    }));
+
+    return {
+      batchReference: String(result.id),
+      status: 'pending',
+      items,
+      total: items.length,
+      successCount: 0,
+      failedCount: 0,
+      rawResponse: response.data,
     };
   }
 

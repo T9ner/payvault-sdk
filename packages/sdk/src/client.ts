@@ -12,6 +12,8 @@ import type {
   WebhookHandler,
   SubscriptionConfig,
   SubscriptionResult,
+  BulkTransferConfig,
+  BulkTransferResult,
   ProviderName,
 } from './types';
 import { PaystackProvider } from './providers/paystack';
@@ -149,6 +151,45 @@ export class PayVault {
    */
   async refund(config: RefundConfig): Promise<RefundResult> {
     return this.provider.refund(config);
+  }
+
+  /**
+   * Send money to multiple bank accounts in a single batch.
+   *
+   * @example
+   * const result = await vault.bulkTransfer({
+   *   title: 'Vendor payouts - March',
+   *   recipients: [
+   *     { accountNumber: '0123456789', bankCode: '058', accountName: 'Amaka Obi', amount: 5000, narration: 'Invoice #001' },
+   *     { accountNumber: '9876543210', bankCode: '063', accountName: 'Emeka Eze', amount: 12000, narration: 'Invoice #002' },
+   *   ],
+   * });
+   * console.log(result.batchReference);  // → "BATCH_abc123"
+   * console.log(result.successCount);    // → 2
+   */
+  async bulkTransfer(config: BulkTransferConfig): Promise<BulkTransferResult> {
+    if (!this.provider.bulkTransfer) {
+      throw new PayVaultError(
+        `${this.provider.name} does not support bulk transfers`,
+        {
+          code: 'UNSUPPORTED_OPERATION',
+          provider: this.provider.name,
+        }
+      );
+    }
+    if (!config.recipients || config.recipients.length === 0) {
+      throw new PayVaultError('At least one recipient is required', {
+        code: 'VALIDATION_ERROR',
+        provider: this.provider.name,
+      });
+    }
+    if (config.recipients.length > 100) {
+      throw new PayVaultError('Maximum 100 recipients per bulk transfer', {
+        code: 'VALIDATION_ERROR',
+        provider: this.provider.name,
+      });
+    }
+    return this.provider.bulkTransfer(config);
   }
 
   // ========== SUBSCRIPTIONS ==========

@@ -1,6 +1,6 @@
 {
   "name": "payvault-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Unified payment SDK for African markets. One API for Paystack + Flutterwave -- backend TypeScript SDK + embeddable checkout widget.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
