@@ -20,6 +20,10 @@ export type {
   RefundResult,
   SubscriptionConfig,
   SubscriptionResult,
+  BulkTransferRecipient,
+  BulkTransferItem,
+  BulkTransferResult,
+  BulkTransferConfig,
 } from './types';
 export {
   PayVaultError,

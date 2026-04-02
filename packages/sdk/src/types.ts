@@ -158,6 +158,76 @@ export interface RefundResult {
   raw: any;
 }
 
+// ── Bulk Transfers ────────────────────────────────────────────────────
+
+/**
+ * A single recipient in a bulk transfer.
+ */
+export interface BulkTransferRecipient {
+  /** Bank account number */
+  accountNumber: string;
+  /** Bank code (e.g. "058" for GTBank, "063" for Access) */
+  bankCode: string;
+  /** Account holder name */
+  accountName: string;
+  /** Amount in MAJOR currency units (same convention as the rest of the SDK) */
+  amount: number;
+  /** Optional transfer description */
+  narration?: string;
+  /** Unique reference for this leg. Auto-generated (UUID) if not provided. */
+  reference?: string;
+  /** Currency. Defaults to the vault's configured currency. */
+  currency?: Currency;
+}
+
+/**
+ * Status of a single leg of a bulk transfer.
+ */
+export interface BulkTransferItem {
+  reference: string;
+  accountNumber: string;
+  bankCode: string;
+  accountName: string;
+  amount: number;
+  currency: string;
+  narration?: string;
+  status: 'success' | 'failed' | 'pending';
+  failureReason?: string;
+  providerReference?: string;
+}
+
+/**
+ * Result from `vault.bulkTransfer()`.
+ */
+export interface BulkTransferResult {
+  /** Batch ID assigned by the provider. */
+  batchReference: string;
+  /** Status of the batch. Providers may process asynchronously — use 'pending' when not immediately known. */
+  status: 'success' | 'failed' | 'pending';
+  /** Individual transfer outcomes. May be empty if the provider queues asynchronously. */
+  items: BulkTransferItem[];
+  /** Total number of transfers in the batch. */
+  total: number;
+  /** Number of successfully initiated transfers. */
+  successCount: number;
+  /** Number of failed transfers. */
+  failedCount: number;
+  /** Raw provider response for debugging. */
+  rawResponse?: unknown;
+}
+
+/**
+ * Configuration for bulk transfers.
+ */
+export interface BulkTransferConfig {
+  /** List of recipients. Minimum 1, maximum 100. */
+  recipients: BulkTransferRecipient[];
+  /** Optional title / narration for the whole batch. */
+  title?: string;
+  /** Source of funds. Defaults to 'balance' (provider wallet). */
+  source?: 'balance';
+}
+
 // Subscription config
 export interface SubscriptionConfig {
   planCode: string;
@@ -220,4 +290,5 @@ export interface Provider {
   // Subscriptions (optional)
   createSubscription?(config: SubscriptionConfig): Promise<SubscriptionResult>;
   cancelSubscription?(code: string): Promise<{ success: boolean }>;
+  bulkTransfer?(config: BulkTransferConfig): Promise<BulkTransferResult>;
 }
