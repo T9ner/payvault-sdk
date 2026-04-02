@@ -79,7 +79,7 @@ export default function DashboardPage() {
           total_volume: totalVolume,
           total_transactions: txPayload.total || txArray.length,
           success_rate: txPayload.total > 0 ? (successCount / txPayload.total) * 100 : 0,
-          active_links: linksArray.filter((l: { active: boolean }) => l.active).length,
+          active_links: linksArray.filter((l: any) => l.is_active).length,
           recent_transactions: txArray.slice(0, 5),
         });
         setTransactions(txArray.slice(0, 5));

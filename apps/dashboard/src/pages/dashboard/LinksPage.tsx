@@ -161,7 +161,7 @@ export default function PaymentLinksPage() {
     },
     {
       header: "Status",
-      accessorKey: (row) => <StatusBadge status={row.active ? "active" : "inactive"} />,
+      accessorKey: (row) => <StatusBadge status={row.is_active ? "active" : "inactive"} />,
     },
     {
       header: "Created",
@@ -171,7 +171,7 @@ export default function PaymentLinksPage() {
       header: "Actions",
       className: "text-right",
       accessorKey: (row) => (
-        row.active && (
+        row.is_active && (
           <Button
             variant="ghost"
             size="sm"

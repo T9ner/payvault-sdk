@@ -81,7 +81,7 @@ export interface PaymentLink {
   description: string;
   amount: number;
   currency: string;
-  active: boolean;
+  is_active: boolean;
   created_at: string;
 }
 
