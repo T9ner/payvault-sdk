@@ -40,9 +40,9 @@ export default function FraudPage() {
       try {
         const data = await dashboard.listFraudEvents({ limit: 50 });
         setEvents(Array.isArray(data) ? data : []);
-      } catch {
+      } catch (err: any) {
         setEvents([]);
-        toast.error("Failed to load fraud events.");
+        toast.error(err.message || "Failed to load fraud events.");
       } finally {
         setLoading(false);
       }
@@ -57,8 +57,8 @@ export default function FraudPage() {
     try {
       await dashboard.upsertFraudRule(ruleForm);
       toast.success("Fraud rule updated successfully.");
-    } catch {
-      toast.error("Failed to update fraud rule.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update fraud rule.");
     } finally {
       setSaving(false);
     }

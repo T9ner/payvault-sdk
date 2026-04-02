@@ -121,8 +121,11 @@ export const dashboard = {
   listSubscriptions: () =>
     api.get<Subscription[]>("/dashboard/subscriptions").then((r) => r.data),
 
+  listPlans: () =>
+    api.get<any[]>("/dashboard/plans").then((r) => r.data),
+
   createPlan: (data: CreatePlanRequest) =>
-    api.post<Plan>("/dashboard/subscriptions/plans", data).then((r) => r.data),
+    api.post<Plan>("/dashboard/plans", data).then((r) => r.data),
 
   cancelSubscription: (id: string) =>
     api.post(`/dashboard/subscriptions/${id}/cancel`).then((r) => r.data),

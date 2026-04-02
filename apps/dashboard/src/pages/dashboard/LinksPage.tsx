@@ -49,10 +49,10 @@ export default function PaymentLinksPage() {
     setLoading(true);
     try {
       const data = await dashboard.listPaymentLinks();
-      setLinks(Array.isArray(data) ? data : []);
-    } catch {
+      setLinks(Array.isArray(data) ? data : (data as any)?.links || []);
+    } catch (err: any) {
       setLinks([]);
-      toast.error("Failed to load payment links.");
+      toast.error(err.message || "Failed to load payment links.");
     } finally {
       setLoading(false);
     }
@@ -75,8 +75,8 @@ export default function PaymentLinksPage() {
       setForm({ name: "", description: "", amount: 0, currency: "NGN" });
       toast.success("Payment link created successfully.");
       await loadLinks();
-    } catch {
-      toast.error("Failed to create payment link.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create payment link.");
     } finally {
       setCreating(false);
     }
@@ -90,8 +90,8 @@ export default function PaymentLinksPage() {
       toast.success("Payment link deactivated.");
       setLinkToDeactivate(null);
       await loadLinks();
-    } catch {
-      toast.error("Failed to deactivate payment link.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to deactivate payment link.");
     } finally {
       setDeactivating(false);
     }

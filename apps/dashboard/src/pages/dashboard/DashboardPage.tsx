@@ -43,12 +43,12 @@ export default function DashboardPage() {
           payments.listTransactions({ limit: 100 }),
         ]);
 
-        const links = results[0].status === "fulfilled" ? results[0].value : [];
+        const linksRaw = results[0].status === "fulfilled" ? results[0].value : { links: [] };
         const txPayload = results[1].status === "fulfilled" ? results[1].value : { transactions: [], total: 0 };
         
         const txns = txPayload.transactions || [];
         const txArray = Array.isArray(txns) ? txns : [];
-        const linksArray = Array.isArray(links) ? links : [];
+        const linksArray = Array.isArray(linksRaw) ? linksRaw : ((linksRaw as any)?.links || []);
 
         const totalVolume = txArray.reduce((sum, t) => sum + (t.status === "success" ? t.amount : 0), 0);
         const successCount = txArray.filter((t) => t.status === "success").length;
@@ -180,7 +180,7 @@ export default function DashboardPage() {
                 axisLine={false} 
                 tickLine={false}
                 dx={-10}
-                tickFormatter={(val) => `$${val}`}
+                tickFormatter={(val) => `₦${(val as number).toLocaleString()}`}
               />
               <Tooltip 
                 contentStyle={{ 
