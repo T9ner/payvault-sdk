@@ -7,9 +7,9 @@ on:
     branches: [main]
 
 jobs:
-  # ── SDK Tests & Build ────────────────────────────────────────────
+  # ── SDK: TypeScript type-check + tests + build ─────────────────────
   sdk:
-    name: SDK Tests
+    name: SDK (type-check → test → build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,19 +27,73 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Type-check
+        run: npm run lint
+
       - name: Run tests
         run: npm test
 
       - name: Build
         run: npm run build
 
-  # ── Go API Tests ─────────────────────────────────────────────────
+  # ── Dashboard: type-check + build (catches broken imports on every PR) ─
+  dashboard:
+    name: Dashboard (build check)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/dashboard
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (type-check + vite)
+        run: npm run build
+        env:
+          VITE_API_URL: http://localhost:8081
+
+  # ── Go API: unit tests + vet + staticcheck ─────────────────────────
   api:
-    name: API Tests
+    name: API (vet → test)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/api
+
+    # Service containers — available at localhost inside the job
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: payvault
+          POSTGRES_PASSWORD: payvault
+          POSTGRES_DB: payvault_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U payvault"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +101,17 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
+          cache: true
+          cache-dependency-path: apps/api/go.sum
+
+      - name: go vet
+        run: go vet ./...
 
       - name: Run tests
-        run: go test ./... -v -count=1
+        run: go test ./... -v -count=1 -race -timeout 120s
+        env:
+          DATABASE_URL: postgres://payvault:payvault@localhost:5432/payvault_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ci-test-secret-key-min-32-characters
+          ENCRYPTION_KEY: f1e52aa6a06d09b49b05c542d7c63f6b070b0f0aef83985803e872882e94cf56
+          ENVIRONMENT: test

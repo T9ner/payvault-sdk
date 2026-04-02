@@ -41,3 +41,5 @@ docs/
 # agent skills
 .agent/
 
+# Local dev Docker overrides (Adminer, Redis Commander, hot-reload)
+docker-compose.override.yml
