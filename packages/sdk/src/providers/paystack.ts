@@ -14,6 +14,8 @@ import type {
   BulkTransferConfig,
   BulkTransferItem,
   BulkTransferResult,
+  VirtualAccountConfig,
+  VirtualAccountResult,
 } from '../types';
 import { HttpClient } from '../http';
 import {
@@ -49,10 +51,14 @@ export class PaystackProvider implements Provider {
     });
   }
 
-  private headers(): Record<string, string> {
-    return {
+  private headers(idempotencyKey?: string): Record<string, string> {
+    const h: Record<string, string> = {
       'Authorization': `Bearer ${this.secretKey}`,
     };
+    if (idempotencyKey) {
+      h['Idempotency-Key'] = idempotencyKey;
+    }
+    return h;
   }
 
   async initializeTransaction(config: TransactionConfig): Promise<TransactionResult> {
@@ -86,10 +92,24 @@ export class PaystackProvider implements Provider {
       if (config.split.bearer) payload.bearer = config.split.bearer;
     }
 
+    // Multi-recipient split (marketplace model)
+    if (config.multiSplit && config.multiSplit.recipients.length > 0) {
+      payload.split = {
+        type: config.multiSplit.recipients[0]?.shareType === 'flat' ? 'flat' : 'percentage',
+        bearer_type: config.multiSplit.bearer || 'account',
+        subaccounts: config.multiSplit.recipients.map(r => ({
+          subaccount: r.subaccountCode,
+          share: r.shareType === 'percentage'
+            ? Math.round(r.share)
+            : toMinorUnits(r.share, currency),
+        })),
+      };
+    }
+
     const response = await this.http.post(
       `${this.baseUrl}/transaction/initialize`,
       payload,
-      this.headers()
+      this.headers(config.idempotencyKey)
     );
 
     return {
@@ -170,7 +190,7 @@ export class PaystackProvider implements Provider {
       const response = await this.http.post(
         `${this.baseUrl}/transaction/charge_authorization`,
         payload,
-        this.headers()
+        this.headers(config.idempotencyKey)
       );
       return this.parseChargeResponse(response.data, reference);
     }
@@ -193,7 +213,7 @@ export class PaystackProvider implements Provider {
     const response = await this.http.post(
       `${this.baseUrl}/charge`,
       payload,
-      this.headers()
+      this.headers(config.idempotencyKey)
     );
     return this.parseChargeResponse(response.data, reference);
   }
@@ -490,6 +510,56 @@ export class PaystackProvider implements Provider {
       authUrl,
       authMessage,
       raw: responseData,
+    };
+  }
+
+  async createVirtualAccount(config: VirtualAccountConfig): Promise<VirtualAccountResult> {
+    // Step 1: Create the customer record
+    const customerRes = await this.http.post(
+      `${this.baseUrl}/customer`,
+      {
+        email: config.email,
+        first_name: config.firstName,
+        last_name: config.lastName,
+        phone: config.phone,
+      },
+      this.headers()
+    );
+    const customerCode: string = customerRes.data.data.customer_code;
+
+    // Step 2: Validate BVN (required before DVA creation with most banks)
+    await this.http.post(
+      `${this.baseUrl}/customer/${customerCode}/identification`,
+      {
+        country: 'NG',
+        type: 'bvn',
+        value: config.bvn,
+        first_name: config.firstName,
+        last_name: config.lastName,
+      },
+      this.headers()
+    );
+
+    // Step 3: Create the Dedicated Virtual Account
+    const dvaRes = await this.http.post(
+      `${this.baseUrl}/dedicated_account`,
+      {
+        customer: customerCode,
+        preferred_bank: 'wema-bank', // Most widely supported; users can extend this
+      },
+      this.headers()
+    );
+    const dva = dvaRes.data.data;
+
+    return {
+      success: dvaRes.data.status === true,
+      provider: 'paystack',
+      accountNumber: dva.account_number,
+      accountName: dva.account_name,
+      bankName: dva.bank?.name || '',
+      reference: String(dva.id || config.reference || generateReference('pvt_va')),
+      expiresAt: null, // Paystack DVAs are permanent
+      raw: dvaRes.data,
     };
   }
 }

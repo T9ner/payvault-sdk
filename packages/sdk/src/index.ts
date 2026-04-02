@@ -24,6 +24,10 @@ export type {
   BulkTransferItem,
   BulkTransferResult,
   BulkTransferConfig,
+  VirtualAccountConfig,
+  VirtualAccountResult,
+  SplitRecipient,
+  MultiSplitConfig,
 } from './types';
 export {
   PayVaultError,
@@ -40,4 +44,5 @@ export {
   normalizeStatus,
   normalizeChannel,
   isValidEmail,
+  stableReference,
 } from './utils';

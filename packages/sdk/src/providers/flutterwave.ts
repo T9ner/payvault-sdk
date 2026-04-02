@@ -12,12 +12,15 @@ import type {
   BulkTransferConfig,
   BulkTransferItem,
   BulkTransferResult,
+  VirtualAccountConfig,
+  VirtualAccountResult,
 } from '../types';
 import { HttpClient } from '../http';
 import {
   generateReference,
   normalizeStatus,
   normalizeChannel,
+  stableReference,
   hmacSha256,
 } from '../utils';
 import { ValidationError, TransactionError } from '../errors';
@@ -97,6 +100,16 @@ export class FlutterwaveProvider implements Provider {
       ];
     }
 
+    // Multi-recipient split (marketplace model)
+    if (config.multiSplit && config.multiSplit.recipients.length > 0) {
+      payload.subaccounts = config.multiSplit.recipients.map(r => ({
+        id: r.subaccountCode,
+        transaction_split_ratio: r.shareType === 'percentage' ? Math.round(r.share) : undefined,
+        transaction_charge_type: r.shareType === 'flat' ? 'flat' : 'ratio',
+        transaction_charge: r.shareType === 'flat' ? r.share : undefined,
+      }));
+    }
+
     const response = await this.http.post(
       `${this.baseUrl}/payments`,
       payload,
@@ -167,7 +180,11 @@ export class FlutterwaveProvider implements Provider {
     }
 
     const currency = config.currency || this.defaultCurrency;
-    const reference = config.reference || generateReference('pvt_fw_chg');
+    // Use a deterministic reference when an idempotency key is provided
+    // This ensures the same charge isn't duplicated on network retries
+    const reference = config.idempotencyKey
+      ? stableReference(config.idempotencyKey)
+      : (config.reference || generateReference('pvt_fw_chg'));
 
     // Tokenized recurring charge
     if (config.authorizationCode) {
@@ -424,6 +441,40 @@ export class FlutterwaveProvider implements Provider {
       authUrl,
       authMessage,
       raw: responseData,
+    };
+  }
+
+  async createVirtualAccount(config: VirtualAccountConfig): Promise<VirtualAccountResult> {
+    const reference = config.reference || generateReference('pvt_va');
+
+    const payload: Record<string, any> = {
+      email: config.email,
+      is_permanent: true,
+      bvn: config.bvn,
+      tx_ref: reference,
+      narration: config.narration,
+      currency: config.currency || this.defaultCurrency,
+    };
+    if (config.firstName) payload.firstname = config.firstName;
+    if (config.lastName) payload.lastname = config.lastName;
+    if (config.phone) payload.phonenumber = config.phone;
+
+    const response = await this.http.post(
+      `${this.baseUrl}/virtual-account-numbers`,
+      payload,
+      this.headers()
+    );
+    const data = response.data.data;
+
+    return {
+      success: response.data.status === 'success',
+      provider: 'flutterwave',
+      accountNumber: data.account_number,
+      accountName: data.account_name,
+      bankName: data.bank_name || '',
+      reference: data.order_ref || reference,
+      expiresAt: data.expiry_date || null,
+      raw: response.data,
     };
   }
 }

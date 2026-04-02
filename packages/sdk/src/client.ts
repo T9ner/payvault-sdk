@@ -14,11 +14,15 @@ import type {
   SubscriptionResult,
   BulkTransferConfig,
   BulkTransferResult,
+  VirtualAccountConfig,
+  VirtualAccountResult,
+  TransactionStatus,
   ProviderName,
 } from './types';
 import { PaystackProvider } from './providers/paystack';
 import { FlutterwaveProvider } from './providers/flutterwave';
 import { PayVaultError } from './errors';
+import { sleep } from './utils';
 
 // Provider registry
 const BUILTIN_PROVIDERS: Record<string, new (config: PayVaultConfig) => Provider> = {
@@ -190,6 +194,92 @@ export class PayVault {
       });
     }
     return this.provider.bulkTransfer(config);
+  }
+
+  // ========== VIRTUAL ACCOUNTS ==========
+
+  /**
+   * Create a dedicated virtual bank account for a customer.
+   * All payments made to this account are automatically reconciled to the customer.
+   *
+   * @example
+   * const account = await vault.createVirtualAccount({
+   *   email: 'customer@example.com',
+   *   bvn: '12345678901',
+   *   firstName: 'Amaka',
+   *   lastName: 'Obi',
+   * });
+   * console.log(account.accountNumber); // Bank account to show the customer
+   */
+  async createVirtualAccount(config: VirtualAccountConfig): Promise<VirtualAccountResult> {
+    if (!this.provider.createVirtualAccount) {
+      throw new PayVaultError(
+        `${this.provider.name} does not support virtual accounts`,
+        { code: 'UNSUPPORTED_OPERATION', provider: this.provider.name }
+      );
+    }
+    if (!config.email) {
+      throw new PayVaultError('email is required', { code: 'VALIDATION_ERROR', provider: this.provider.name });
+    }
+    if (!config.bvn) {
+      throw new PayVaultError('bvn is required for virtual account creation', { code: 'VALIDATION_ERROR', provider: this.provider.name });
+    }
+    return this.provider.createVirtualAccount(config);
+  }
+
+  // ========== VERIFICATION POLLING ==========
+
+  /**
+   * Poll a transaction until it resolves to a final status (success, failed, or abandoned).
+   * Uses exponential backoff between retries.
+   *
+   * @example
+   * const result = await vault.pollVerification('pvt_abc123', {
+   *   maxWaitMs: 60000,   // Wait up to 60 seconds
+   *   onPoll: (attempt, status) => console.log(`Attempt ${attempt}: ${status}`),
+   * });
+   * if (result.success) { ... }
+   */
+  async pollVerification(
+    reference: string,
+    options?: {
+      /** Milliseconds between polls (default: 2000). Doubles each attempt, capped at 4x. */
+      intervalMs?: number;
+      /** Maximum total wait time in milliseconds (default: 30000). */
+      maxWaitMs?: number;
+      /** Called after each poll. Useful for progress UI. */
+      onPoll?: (attempt: number, status: TransactionStatus) => void;
+    }
+  ): Promise<VerificationResult> {
+    const intervalMs = options?.intervalMs ?? 2000;
+    const maxWaitMs = options?.maxWaitMs ?? 30000;
+    const onPoll = options?.onPoll;
+
+    const start = Date.now();
+    let attempt = 0;
+
+    while (true) {
+      attempt++;
+      const result = await this.provider.verifyTransaction(reference);
+      onPoll?.(attempt, result.status);
+
+      // Terminal status — stop polling
+      if (result.status !== 'pending') {
+        return result;
+      }
+
+      const elapsed = Date.now() - start;
+      if (elapsed >= maxWaitMs) {
+        throw new PayVaultError(
+          `Verification timed out after ${maxWaitMs}ms (${attempt} attempts). Last status: pending`,
+          { code: 'POLLING_TIMEOUT', provider: this.provider.name }
+        );
+      }
+
+      // Exponential backoff, capped at 4x the base interval
+      const wait = Math.min(intervalMs * Math.pow(1.5, attempt - 1), intervalMs * 4);
+      await sleep(wait);
+    }
   }
 
   // ========== SUBSCRIPTIONS ==========

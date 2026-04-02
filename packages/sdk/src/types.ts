@@ -51,12 +51,16 @@ export interface TransactionConfig {
   channels?: PaymentChannel[]; // Restrict available channels
   callbackUrl?: string;
   metadata?: Record<string, any>;
-  // Split payment
+  // Single-subaccount split (simple case)
   split?: {
     subaccountCode: string;
     transactionCharge?: number;
     bearer?: 'account' | 'subaccount';
   };
+  // Multi-recipient split (marketplace model) — use instead of `split` for multiple recipients
+  multiSplit?: MultiSplitConfig;
+  // Idempotency key — prevents duplicate charges on network retries
+  idempotencyKey?: string;
   // Subscription
   plan?: string;
   // Customer details
@@ -82,6 +86,8 @@ export interface ChargeConfig {
   authorizationCode?: string;  // For recurring charges
   channel: PaymentChannel;
   metadata?: Record<string, any>;
+  // Idempotency key — prevents duplicate charges on network retries
+  idempotencyKey?: string;
   // Card details (only for direct card charge -- use checkout URL flow when possible)
   card?: {
     number: string;
@@ -228,6 +234,78 @@ export interface BulkTransferConfig {
   source?: 'balance';
 }
 
+// ── Virtual Accounts ──────────────────────────────────────────────────────
+
+/**
+ * Configuration for creating a dedicated virtual bank account for a customer.
+ * Payments made to this account number are auto-reconciled to the customer.
+ */
+export interface VirtualAccountConfig {
+  /** Customer email address. */
+  email: string;
+  /** Bank Verification Number — required by all supported providers for identity verification. */
+  bvn: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  /** Currency. Defaults to the vault's configured currency. */
+  currency?: Currency;
+  /** Optional description shown on bank statements. */
+  narration?: string;
+  /** Optional idempotency reference. Auto-generated if not provided. */
+  reference?: string;
+}
+
+/** Result from `vault.createVirtualAccount()`. */
+export interface VirtualAccountResult {
+  success: boolean;
+  provider: ProviderName;
+  /** The bank account number assigned to this customer. */
+  accountNumber: string;
+  /** Account name as registered at the bank. */
+  accountName: string;
+  /** Bank name (e.g. "Wema Bank", "Guaranty Trust Bank"). */
+  bankName: string;
+  reference: string;
+  /** Expiry timestamp — null if the account is permanent. */
+  expiresAt?: string | null;
+  raw: any;
+}
+
+// ── Multi-Split Payments ───────────────────────────────────────────────────
+
+/**
+ * A single recipient in a multi-way payment split.
+ */
+export interface SplitRecipient {
+  /** Provider subaccount code (Paystack) or subaccount ID (Flutterwave). */
+  subaccountCode: string;
+  /**
+   * The recipient's share.
+   * - `'percentage'`: 0–100 (e.g. 30 = 30% of the transaction amount)
+   * - `'flat'`: exact amount in major currency units (same convention as `TransactionConfig.amount`)
+   */
+  share: number;
+  shareType: 'percentage' | 'flat';
+}
+
+/**
+ * Multi-recipient split configuration.
+ * Pass this as `TransactionConfig.multiSplit` when splitting across more than one subaccount.
+ * For a single subaccount, use the simpler `TransactionConfig.split` field.
+ */
+export interface MultiSplitConfig {
+  recipients: SplitRecipient[];
+  /**
+   * Who bears the transaction fees.
+   * - `'account'`          — Main account bears all fees (default)
+   * - `'subaccount'`       — First listed subaccount bears fees
+   * - `'all-proportional'` — Fees split proportionally (Paystack only)
+   * - `'all'`              — Fees split equally (Paystack only)
+   */
+  bearer?: 'account' | 'subaccount' | 'all-proportional' | 'all';
+}
+
 // Subscription config
 export interface SubscriptionConfig {
   planCode: string;
@@ -291,4 +369,6 @@ export interface Provider {
   createSubscription?(config: SubscriptionConfig): Promise<SubscriptionResult>;
   cancelSubscription?(code: string): Promise<{ success: boolean }>;
   bulkTransfer?(config: BulkTransferConfig): Promise<BulkTransferResult>;
+  // Virtual accounts (optional)
+  createVirtualAccount?(config: VirtualAccountConfig): Promise<VirtualAccountResult>;
 }

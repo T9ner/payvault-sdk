@@ -89,6 +89,15 @@ export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/**
+ * Derive a deterministic 32-char hex reference from an idempotency key.
+ * Used by providers that don't support an Idempotency-Key header natively
+ * (e.g. Flutterwave) so the same key always maps to the same tx_ref.
+ */
+export function stableReference(idempotencyKey: string): string {
+  return crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 32);
+}
+
 // Deep merge objects.
 // Source may contain keys that are not in target (e.g. merging a partial config).
 export function deepMerge<T extends Record<string, any>>(
