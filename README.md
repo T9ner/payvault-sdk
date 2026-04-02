@@ -729,11 +729,6 @@ Before going live, ensure:
 - [ ] A staging environment with **test** API keys mirrors production
 
 
-**Developer Community**
-- Join the discussion on [GitHub Discussions](https://github.com/T9ner/payvault/discussions)
-- Share your integration story — we'll highlight African developers building with PayVault
-- Translate documentation into French, Swahili, Hausa, Yoruba, or Igbo to reach more developers across the continent
-
 > *"The best payment infrastructure for Africa will be built by Africans, for Africans — one abstraction layer at a time."*
 
 ---
