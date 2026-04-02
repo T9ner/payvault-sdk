@@ -4,11 +4,11 @@
 
 ### One API. Every African payment provider.
 
-[![npm version](https://img.shields.io/npm/v/payvault-sdk.svg?style=flat-square)](https://www.npmjs.com/package/payvault-sdk)
+[![Build](https://github.com/T9ner/payvault/actions/workflows/ci.yml/badge.svg)](https://github.com/T9ner/payvault/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/T9ner/payvault/pulls)
 
 **Stop rewriting payment code when you switch providers.**
 PayVault gives you a single, type-safe API that works with Paystack, Flutterwave, and any provider you add.
@@ -74,13 +74,16 @@ If you want to run the hosted backend:
 # Start infrastructure
 docker compose up -d postgres redis
 
-# Run the API
+# Run the API (default port :8080)
 cd apps/api
 cp env.example .env   # Edit with your credentials
 go run ./cmd/api
+
+# Run the API for dashboard development (Vite proxy expects :8081)
+PORT=8081 go run ./cmd/api
 ```
 
-The API starts on `http://localhost:8080`.
+The API runs on `http://localhost:8080` by default. For dashboard development, the Vite proxy targets `http://localhost:8081`, so start the API with `PORT=8081 go run ./cmd/api`.
 
 ### 4. Run the Dashboard (Optional)
 
@@ -92,7 +95,7 @@ npm install
 npm run dev
 ```
 
-The dashboard starts on `http://localhost:3000` and proxies API requests to `:8080`.
+The dashboard starts on `http://localhost:3000`. In development, Vite proxies `/api` requests to `http://localhost:8081`.
 
 ---
 
@@ -277,6 +280,37 @@ app.post('/webhooks/payments', express.raw({ type: 'application/json' }), async 
 });
 ```
 
+### Payment Links
+
+PayVault lets you create shareable payment pages without writing any frontend code. This is handled by the API, so no SDK is required.
+
+### Create a link
+```bash
+curl -X POST http://localhost:8081/api/v1/dashboard/links \
+  -H "Authorization: Bearer YOUR_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Premium Plan",
+    "description": "One-time upgrade to premium",
+    "link_type": "fixed",
+    "amount": 5000,
+    "currency": "NGN"
+  }'
+```
+
+### Share the link
+The response includes a `slug`. Your checkout URL is:
+```
+http://your-api-host/api/v1/checkout/{slug}
+```
+Opening this URL shows a branded dark-theme checkout page. The customer enters their email, clicks Pay, and gets redirected to Paystack's hosted checkout.
+
+### Link types
+| Type | Behaviour |
+|------|-----------|
+| `fixed` | Amount is set by merchant — customer just enters email |
+| `flexible` | Customer enters both amount and email |
+
 ### Recurring Charges
 
 ```typescript
@@ -326,10 +360,6 @@ try {
 }
 ```
 
-**For complete SDK documentation, see [packages/sdk/README.md](packages/sdk/README.md).**
-
----
-
 ## API
 
 The API is a Go backend that provides a hosted, multi-tenant payment gateway. It wraps the SDK's functionality behind a REST API with authentication, rate limiting, and async job processing.
@@ -344,15 +374,29 @@ The API is a Go backend that provides a hosted, multi-tenant payment gateway. It
 
 ### Key Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/auth/register` | POST | Create merchant account |
-| `/auth/login` | POST | Authenticate and get JWT |
-| `/transactions/initialize` | POST | Start a payment transaction |
-| `/transactions/:ref/verify` | GET | Verify transaction status |
-| `/transactions` | GET | List all transactions (paginated) |
-| `/webhooks/:provider` | POST | Receive provider webhooks |
-| `/settings` | GET/PUT | Merchant settings and API keys |
+| Endpoint | Auth | Description |
+|----------|------|-------------|
+| `POST /auth/register` | None | Create merchant account |
+| `POST /auth/login` | None | Authenticate, get JWT |
+| `GET /auth/github` | None | GitHub OAuth login |
+| `GET /api/v1/checkout/{slug}` | None | Customer checkout page (HTML) |
+| `POST /api/v1/checkout/{slug}/pay` | None | Initiate payment from link |
+| `POST /dashboard/api-keys` | JWT | Generate API key |
+| `POST /dashboard/providers` | JWT | Save Paystack/Flutterwave credentials |
+| `POST /dashboard/links` | JWT | Create payment link |
+| `GET /dashboard/links` | JWT | List payment links |
+| `POST /dashboard/transactions/charge` | JWT | Initiate charge |
+| `GET /dashboard/transactions` | JWT | List transactions |
+| `GET /dashboard/transactions/{ref}/verify` | JWT | Verify transaction |
+| `POST /dashboard/transactions/refund` | JWT | Refund transaction |
+| `GET /dashboard/plans` | JWT | List subscription plans |
+| `POST /dashboard/plans` | JWT | Create subscription plan |
+| `GET /dashboard/subscriptions` | JWT | List subscriptions |
+| `POST /dashboard/webhooks/logs/{id}/retry` | JWT | Retry webhook delivery |
+| `POST /payments/charge` | API Key | Server-to-server charge |
+| `GET /payments/verify/{reference}` | API Key | Verify transaction |
+| `GET /payments/status/{reference}` | API Key | Webhook-free status check |
+| `GET /payments/status/{reference}/wait` | API Key | Long-poll for status |
 
 ### Running the API
 
@@ -371,14 +415,15 @@ cp env.example .env
 # - PAYSTACK_SECRET_KEY=sk_test_xxxxx
 # - FLUTTERWAVE_SECRET_KEY=FLWSECK_TEST-xxxxx
 
-# Run migrations
-go run ./cmd/api migrate
-
 # Start the server
+# Migrations run automatically on startup
 go run ./cmd/api
+
+# Dashboard-compatible dev server
+PORT=8081 go run ./cmd/api
 ```
 
-The API will start on `:8080`.
+The API starts on `:8080` by default. When developing against the dashboard's Vite proxy, run it on `:8081`.
 
 ### Docker Deployment
 
@@ -389,7 +434,6 @@ docker compose up -d
 # API will be available at localhost:8080
 ```
 
-**For API documentation and development guide, see [apps/api/README.md](apps/api/README.md).**
 
 ---
 
@@ -408,12 +452,13 @@ The Dashboard is a React SPA for merchants to manage transactions, view analytic
 
 ### Features
 
-- 📊 **Transaction Analytics** — Real-time charts and revenue tracking
-- 💳 **Transaction List** — Searchable, filterable table with pagination
-- 🔔 **Webhook Logs** — Debug webhook delivery and retries
-- ⚙️ **Settings** — Configure API keys, webhook URLs, and provider preferences
-- 🔐 **Authentication** — JWT-based login with protected routes
-- 🌓 **Dark Mode** — Full dark mode support
+- ✅ **Transaction list with status filtering** — `All`, `Success`, `Pending`, `Failed`, `Refunded`
+- ✅ **Create transaction from dashboard** — initiates Paystack checkout
+- ✅ **Payment links** — create, view, deactivate
+- ✅ **Subscription plans** — create plans, view active subscriptions
+- ✅ **Fraud rules** — configure velocity, amount, duplicate, and geo rules
+- ✅ **Webhook logs** — view delivery attempts, retry failed webhooks
+- ✅ **Settings** — generate API keys, save Paystack/Flutterwave credentials
 
 ### Running the Dashboard
 
@@ -423,7 +468,7 @@ npm install
 npm run dev
 ```
 
-The dashboard starts on `http://localhost:3000`. It proxies API requests to `http://localhost:8080` (configure in `vite.config.ts`).
+The dashboard starts on `http://localhost:3000`. In development it proxies `/api` requests to `http://localhost:8081` (configured in `apps/dashboard/vite.config.ts`).
 
 ### Production Build
 
@@ -432,7 +477,6 @@ npm run build
 # Output: dist/ folder ready to deploy to Vercel, Netlify, or CDN
 ```
 
-**For component documentation and development guide, see [apps/dashboard/README.md](apps/dashboard/README.md).**
 
 ---
 
@@ -496,7 +540,9 @@ ALLOWED_ORIGINS=https://yourdomain.com,http://localhost:3000
 Environment variables in `apps/dashboard/.env`:
 
 ```bash
-VITE_API_URL=http://localhost:8080
+# Optional: set this for direct API access.
+# Leave it unset in local dev to use the Vite `/api` proxy to :8081.
+VITE_API_URL=http://localhost:8081
 ```
 
 ---
@@ -584,14 +630,22 @@ Zero-decimal currencies (JPY, KRW, VND) are handled automatically.
 
 We welcome contributions! Here's how to work on each component:
 
-### Adding a New Provider to the SDK
+### Adding a New Provider
+
+#### SDK
 
 1. Create `packages/sdk/src/providers/yourprovider.ts`
 2. Implement the `Provider` interface
-3. Add it to the `BUILTIN_PROVIDERS` registry in `src/client.ts`
-4. Export it from `src/index.ts`
-5. Add status mappings to `src/utils.ts`
+3. Add it to the provider registry in `packages/sdk/src/client.ts`
+4. Export it from `packages/sdk/src/index.ts`
+5. Add status mappings to `packages/sdk/src/utils.ts`
 6. Write tests and submit a PR
+
+#### API (Go)
+
+1. Create `apps/api/internal/services/yourprovider.go`
+2. Implement the `Provider` interface (see `apps/api/internal/services/provider.go`)
+3. Register it in `apps/api/cmd/api/main.go`: `providers.Register(services.NewYourProvider())`
 
 ### Working on the API
 
@@ -610,6 +664,25 @@ air
 # Create a new migration
 # (install migrate: brew install golang-migrate)
 migrate create -ext sql -dir migrations -seq add_your_feature
+```
+
+### Running Integration Tests
+
+Integration tests validate every SQL query against a real PostgreSQL schema.
+
+```bash
+# Start the test database
+docker compose up -d postgres-test
+
+# Run integration tests
+(
+  cd apps/api
+  TEST_DATABASE_URL="postgres://payvault:payvault@localhost:5433/payvault_test?sslmode=disable" \
+    go test -tags integration -v ./internal/services/...
+)
+
+# Or use the runner script from the repo root (handles DB lifecycle automatically)
+./apps/api/scripts/integration-test.sh
 ```
 
 ### Working on the Dashboard
