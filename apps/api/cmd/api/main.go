@@ -62,6 +62,8 @@ func main() {
 	providers := services.NewProviderRegistry()
 	providers.Register(services.NewPaystackProvider())
 	providers.Register(services.NewFlutterwaveProvider())
+	providers.Register(services.NewMonnifyProvider())
+	providers.Register(services.NewSquadProvider())
 
 	// Transaction service (core payment lifecycle)
 	txnSvc := services.NewTransactionService(db, providers, cryptoSvc, queueAdapter)
