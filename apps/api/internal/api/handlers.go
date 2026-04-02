@@ -2,9 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -30,6 +33,315 @@ type Handlers struct {
 	config      *config.Config
 	settings    *services.SettingsService
 }
+
+type checkoutPageData struct {
+	Slug          string
+	Name          string
+	Description   string
+	LinkType      string
+	Amount        int64
+	Currency      string
+	DisplayAmount string
+}
+
+var checkoutTmpl = template.Must(template.New("checkout").Parse(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Name}} · PayVault</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: #0f0f0f;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .card {
+            width: 100%;
+            max-width: 400px;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px 24px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .brand-mark {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5a623;
+            color: #0f0f0f;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+        }
+        .brand-text {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .content {
+            padding: 24px;
+        }
+        h1 {
+            margin: 0 0 8px;
+            font-size: 1.5rem;
+            line-height: 1.2;
+        }
+        .description {
+            margin: 0 0 24px;
+            color: #a0a0a0;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+        .amount-display {
+            margin: 0 0 24px;
+            padding: 14px 16px;
+            border: 1px solid #2a2a2a;
+            border-radius: 14px;
+            background: #141414;
+        }
+        .amount-label {
+            display: block;
+            margin-bottom: 6px;
+            color: #a0a0a0;
+            font-size: 0.9rem;
+        }
+        .amount-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #f5a623;
+        }
+        form {
+            display: grid;
+            gap: 16px;
+        }
+        label {
+            display: grid;
+            gap: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #2a2a2a;
+            border-radius: 14px;
+            background: #141414;
+            color: #ffffff;
+            font: inherit;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        input:focus {
+            border-color: #f5a623;
+            box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.15);
+        }
+        input::placeholder {
+            color: #666666;
+        }
+        .hint {
+            color: #a0a0a0;
+            font-size: 0.85rem;
+        }
+        button {
+            width: 100%;
+            padding: 14px 16px;
+            border: 0;
+            border-radius: 14px;
+            background: #f5a623;
+            color: #0f0f0f;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .error {
+            min-height: 20px;
+            color: #ff7b72;
+            font-size: 0.92rem;
+        }
+        .footer {
+            margin-top: 20px;
+            color: #a0a0a0;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        .footer strong {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="brand">
+            <div class="brand-mark">PV</div>
+            <div class="brand-text">PayVault</div>
+        </div>
+        <div class="content">
+            <h1>{{.Name}}</h1>
+            {{if .Description}}<p class="description">{{.Description}}</p>{{end}}
+            {{if eq .LinkType "fixed"}}
+            <div class="amount-display">
+                <span class="amount-label">Amount</span>
+                <div class="amount-value">{{.DisplayAmount}}</div>
+            </div>
+            {{end}}
+            <form id="checkout-form">
+                {{if eq .LinkType "flexible"}}
+                <label for="amount">
+                    Amount ({{if .Currency}}{{.Currency}}{{else}}NGN{{end}})
+                    <input id="amount" name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="Enter amount" required>
+                    <span class="hint">Enter the amount in major units.</span>
+                </label>
+                {{end}}
+                <label for="email">
+                    Customer Email
+                    <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+                </label>
+                <button id="pay-btn" type="submit">{{if eq .LinkType "fixed"}}Pay {{.DisplayAmount}}{{else}}Continue to payment{{end}}</button>
+                <div id="error-msg" class="error" role="alert" aria-live="polite"></div>
+            </form>
+            <div class="footer">🔒 Secured by <strong>PayVault</strong></div>
+        </div>
+    </main>
+    <script>
+        const form = document.getElementById('checkout-form');
+        const btn = document.getElementById('pay-btn');
+        const errorEl = document.getElementById('error-msg');
+        const payBtnText = btn.textContent;
+
+        form.addEventListener('submit', async function handlePay(e) {
+            e.preventDefault();
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+            errorEl.textContent = '';
+
+            const email = document.getElementById('email').value.trim();
+            const body = { email };
+
+            {{if eq .LinkType "flexible"}}
+            const amountInput = document.getElementById('amount').value;
+            const parsedAmount = parseFloat(amountInput);
+            if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+                errorEl.textContent = 'Enter a valid amount.';
+                btn.disabled = false;
+                btn.textContent = payBtnText;
+                return;
+            }
+            body.amount = Math.round(parsedAmount * 100);
+            {{end}}
+
+            try {
+                const res = await fetch('/api/v1/checkout/{{.Slug}}/pay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const json = await res.json();
+                if (json.success && json.data && json.data.authorization_url) {
+                    window.location.href = json.data.authorization_url;
+                    return;
+                }
+                errorEl.textContent = json.error || 'Payment failed. Please try again.';
+            } catch (err) {
+                errorEl.textContent = 'Network error. Please try again.';
+            }
+
+            btn.disabled = false;
+            btn.textContent = payBtnText;
+        });
+    </script>
+</body>
+</html>`))
+
+var checkoutErrorTmpl = template.Must(template.New("checkout-error").Parse(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout unavailable · PayVault</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: #0f0f0f;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .card {
+            width: 100%;
+            max-width: 400px;
+            padding: 32px 24px;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+        }
+        .brand {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 18px;
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5a623;
+            color: #0f0f0f;
+            font-weight: 800;
+        }
+        h1 {
+            margin: 0 0 10px;
+            font-size: 1.5rem;
+        }
+        p {
+            margin: 0;
+            color: #a0a0a0;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="brand">PV</div>
+        <h1>Checkout unavailable</h1>
+        <p>{{.}}</p>
+    </main>
+</body>
+</html>`))
 
 func NewHandlers(
 	auth *services.AuthService,
@@ -293,11 +605,70 @@ func (h *Handlers) GetCheckoutPage(w http.ResponseWriter, r *http.Request) {
 
 	link, err := h.links.GetBySlug(r.Context(), slug)
 	if err != nil {
-		middleware.ErrorResponse(w, http.StatusNotFound, err.Error())
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusNotFound)
+		if tplErr := checkoutErrorTmpl.Execute(w, strings.TrimSpace(err.Error())); tplErr != nil {
+			http.Error(w, "Checkout unavailable", http.StatusNotFound)
+		}
 		return
 	}
 
-	middleware.JSONResponse(w, http.StatusOK, link)
+	var amountKobo int64
+	if link.Amount != nil {
+		amountKobo = *link.Amount
+	}
+
+	data := checkoutPageData{
+		Slug:          slug,
+		Name:          link.Name,
+		Description:   link.Description,
+		LinkType:      link.LinkType,
+		Amount:        amountKobo,
+		Currency:      link.Currency,
+		DisplayAmount: formatCheckoutAmount(amountKobo, link.Currency),
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := checkoutTmpl.Execute(w, data); err != nil {
+		http.Error(w, "Failed to render checkout page", http.StatusInternalServerError)
+	}
+}
+
+func formatCheckoutAmount(amount int64, currency string) string {
+	symbol := "₦"
+	switch strings.ToUpper(currency) {
+	case "", "NGN":
+		symbol = "₦"
+	case "USD":
+		symbol = "$"
+	default:
+		symbol = strings.ToUpper(currency) + " "
+	}
+
+	major := amount / 100
+	minor := amount % 100
+	return fmt.Sprintf("%s%s.%02d", symbol, formatCheckoutInteger(major), minor)
+}
+
+func formatCheckoutInteger(amount int64) string {
+	digits := strconv.FormatInt(amount, 10)
+	if len(digits) <= 3 {
+		return digits
+	}
+
+	var b strings.Builder
+	firstGroup := len(digits) % 3
+	if firstGroup == 0 {
+		firstGroup = 3
+	}
+
+	b.WriteString(digits[:firstGroup])
+	for i := firstGroup; i < len(digits); i += 3 {
+		b.WriteString(",")
+		b.WriteString(digits[i : i+3])
+	}
+
+	return b.String()
 }
 
 // POST /api/v1/checkout/{slug}/pay (public -- no auth)
