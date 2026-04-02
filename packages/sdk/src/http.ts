@@ -69,7 +69,7 @@ export class HttpClient {
         const response = await fetch(config.url, fetchOptions);
         clearTimeout(timeoutId);
 
-        const data = await response.json().catch(() => null);
+        const data = await response.json().catch(() => null) as Record<string, any> | null;
 
         // Auth error -- don't retry
         if (response.status === 401) {

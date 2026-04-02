@@ -89,14 +89,18 @@ export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// Deep merge objects
-export function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>): T {
-  const result = { ...target };
+// Deep merge objects.
+// Source may contain keys that are not in target (e.g. merging a partial config).
+export function deepMerge<T extends Record<string, any>>(
+  target: T,
+  source: Partial<T> & Record<string, any>
+): T {
+  const result = { ...target } as T;
   for (const key of Object.keys(source)) {
-    const sourceVal = source[key as keyof typeof source];
+    const sourceVal = source[key];
     if (sourceVal && typeof sourceVal === 'object' && !Array.isArray(sourceVal)) {
       result[key as keyof T] = deepMerge(
-        result[key as keyof T] as Record<string, any>,
+        (result[key as keyof T] ?? {}) as Record<string, any>,
         sourceVal as Record<string, any>
       ) as T[keyof T];
     } else if (sourceVal !== undefined) {

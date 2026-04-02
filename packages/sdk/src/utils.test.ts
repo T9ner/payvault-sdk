@@ -215,7 +215,7 @@ describe('deepMerge', () => {
   it('deeply merges nested objects', () => {
     const result = deepMerge(
       { config: { retry: true, timeout: 30 } },
-      { config: { timeout: 60 } }
+      { config: { timeout: 60 } } as Record<string, any>
     );
     expect(result).toEqual({ config: { retry: true, timeout: 60 } });
   });
