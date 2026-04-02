@@ -21,6 +21,8 @@ import type {
 } from './types';
 import { PaystackProvider } from './providers/paystack';
 import { FlutterwaveProvider } from './providers/flutterwave';
+import { MonnifyProvider } from './providers/monnify';
+import { SquadProvider } from './providers/squad';
 import { PayVaultError } from './errors';
 import { sleep } from './utils';
 
@@ -28,6 +30,8 @@ import { sleep } from './utils';
 const BUILTIN_PROVIDERS: Record<string, new (config: PayVaultConfig) => Provider> = {
   paystack: PaystackProvider,
   flutterwave: FlutterwaveProvider,
+  monnify: MonnifyProvider,
+  squad: SquadProvider,
 };
 
 export class PayVault {

@@ -1,6 +1,8 @@
 export { PayVault } from './client';
 export { PaystackProvider } from './providers/paystack';
 export { FlutterwaveProvider } from './providers/flutterwave';
+export { MonnifyProvider } from './providers/monnify';
+export { SquadProvider } from './providers/squad';
 export type {
   PayVaultConfig,
   Provider,
