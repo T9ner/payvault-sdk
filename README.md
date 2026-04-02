@@ -640,6 +640,266 @@ npm run build
 
 ---
 
+## SDK Improvements & Roadmap
+
+The SDK is production-ready for Paystack and Flutterwave but has room to grow. Contributions to any of these are welcome.
+
+### Short-term (good first issues)
+
+**Better TypeScript DX**
+- Generic `metadata` typing: `initializeTransaction<T extends Record<string, unknown>>(config: TransactionConfig<T>)` so custom metadata is typed end-to-end
+- Discriminated union return types so TypeScript can narrow `if (result.status === 'success')` and guarantee fields like `paidAt` are present
+- Stricter currency type: `'NGN' | 'GHS' | 'KES' | 'USD' | 'ZAR'` instead of `string`
+
+**Reliability**
+- Idempotency key support: auto-generate and attach `Idempotency-Key` headers on mutating requests so network retries don't create duplicate transactions
+- Circuit breaker: after N consecutive provider failures, fail fast and surface a `ProviderUnavailableError` instead of exhausting retry budget
+- Request timeout per-call override: `vault.initializeTransaction({...}, { timeout: 5000 })`
+
+**Developer Experience**
+- `vault.on('*', handler)` catch-all webhook handler for debugging
+- Structured logging hook: `new PayVault({..., logger: (level, msg, meta) => myLogger.log(level, msg, meta)})`
+- `vault.healthCheck()` method to ping the provider API and verify credentials before going live
+
+### Medium-term
+
+- **Recurring charge API** — a unified `vault.chargeRecurring({ email, authCode, amount })` that handles the Paystack `charge authorization` and Flutterwave `tokenized charge` difference transparently
+- **Split payments** — Paystack and Flutterwave both support split payments; expose via `vault.initializeTransaction({ splits: [{ subaccount, share }] })`
+- **Virtual accounts** — unified `vault.createVirtualAccount({ email, bank })` for both Paystack (dedicated NUBAN) and Flutterwave
+- **Bulk payouts** — `vault.bulkTransfer([{ account, amount, narration }])` for disbursements
+- **Embeddable checkout widget** — a `<payvault-checkout>` web component (`packages/sdk/checkout/`) that drops into any HTML page without a framework
+
+---
+
+## Adding More Payment Providers
+
+PayVault's provider interface makes it straightforward to add any payment gateway. Each provider just needs to implement 3–4 methods. Here are the most impactful providers to add for African markets:
+
+### West Africa
+
+| Provider | Markets | Notes |
+|----------|---------|-------|
+| **Monnify** (by TeamApt/Moniepoint) | Nigeria | Virtual accounts, bank transfers, cards; popular with fintechs |
+| **Interswitch/Quickteller** | Nigeria, East Africa | Longest-running Nigeria processor; used by major banks |
+| **Remita** | Nigeria | Government payments, direct debit, salary processing |
+| **Squad by GTB** | Nigeria | New entrant from Guaranty Trust Bank; low fees |
+| **Fincra** | Nigeria, Kenya, SA | Multi-currency, B2B-focused, strong stablecoin support |
+
+### East Africa
+
+| Provider | Markets | Notes |
+|----------|---------|-------|
+| **M-Pesa (Daraja API)** | Kenya, Tanzania, Uganda | Dominant mobile money; requires Safaricom partnership |
+| **Pesapal** | Kenya, Uganda, Tanzania | Cards + M-Pesa in one integration |
+| **Cellulant** | 18 African countries | Mobile money aggregator across sub-Saharan Africa |
+| **IntaSend** | Kenya | Simple Stripe-like API; strong M-Pesa developer experience |
+
+### Pan-African / Multi-Market
+
+| Provider | Markets | Notes |
+|----------|---------|-------|
+| **DPO Pay (by Network International)** | 54 countries | Widest geographic coverage on the continent |
+| **Pawapay** | 30+ countries | MVNO mobile money specialist; programmatic payouts |
+| **Chipper Cash** | 7 countries | P2P transfers, business payouts; popular with diaspora |
+| **Pezesha** | Kenya, Ghana | Embedded lending and BNPL for SMEs |
+
+### Implementing a New Provider
+
+```typescript
+// packages/sdk/src/providers/monnify.ts
+import type { Provider, ChargeRequest, ChargeResponse, VerifyResponse } from '../types';
+
+export class MonnifyProvider implements Provider {
+  name = 'monnify' as const;
+
+  async initiateCharge(req: ChargeRequest): Promise<ChargeResponse> {
+    // Monnify uses Basic auth (apiKey:secretKey base64)
+    // POST https://sandbox.monnify.com/api/v1/merchant/transactions/init-transaction
+    // Returns { responseBody: { checkoutUrl, transactionReference } }
+  }
+
+  async verifyTransaction(providerRef: string): Promise<VerifyResponse> {
+    // GET https://sandbox.monnify.com/api/v1/merchant/transactions/query
+  }
+}
+```
+
+Then register it:
+```typescript
+// src/client.ts
+import { MonnifyProvider } from './providers/monnify';
+
+const BUILTIN_PROVIDERS = {
+  paystack: () => new PaystackProvider(),
+  flutterwave: () => new FlutterwaveProvider(),
+  monnify: () => new MonnifyProvider(),   // ← add this
+};
+```
+
+Community PRs adding new providers are actively encouraged. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
+
+---
+
+## CI/CD for Production
+
+PayVault ships a basic CI workflow (`.github/workflows/ci.yml`). Here's how to extend it for a safe, reliable production deployment.
+
+### Recommended Pipeline Stages
+
+```
+Push / PR
+  │
+  ├─ 1. Lint & Type Check (< 1 min)
+  │     SDK: tsc --noEmit, eslint
+  │     API: go vet ./..., staticcheck
+  │
+  ├─ 2. Unit Tests (< 2 min)
+  │     SDK: vitest run (117 tests)
+  │     API: go test ./... (unit, mocked)
+  │
+  ├─ 3. Integration Tests (< 5 min, on PR only)
+  │     API: go test -tags integration ./...
+  │     Spins up postgres-test via docker-compose
+  │
+  ├─ 4. Build Artifacts (< 3 min)
+  │     SDK: npm run build → dist/
+  │     API: docker build → ghcr.io/your-org/payvault-api
+  │     Dashboard: npm run build → dist/
+  │
+  └─ 5. Deploy (main branch only)
+        API: → Railway / Fly.io / GCP Cloud Run
+        Dashboard: → Vercel / Netlify / Cloudflare Pages
+```
+
+### Example GitHub Actions extension
+
+```yaml
+# .github/workflows/ci.yml additions
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    if: github.event_name == 'pull_request'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: payvault_test
+          POSTGRES_USER: payvault
+          POSTGRES_PASSWORD: payvault
+        ports: ["5433:5432"]
+        options: --health-cmd pg_isready
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.22' }
+      - run: go test -tags integration -v ./internal/services/...
+        working-directory: apps/api
+        env:
+          TEST_DATABASE_URL: postgres://payvault:payvault@localhost:5433/payvault_test
+
+  deploy-api:
+    runs-on: ubuntu-latest
+    needs: [integration-test]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Railway
+        run: railway up --service api
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+```
+
+### Production Checklist
+
+Before going live, ensure:
+
+- [ ] `ENCRYPTION_KEY` is a cryptographically random 64-char hex string (not the default zeroes)
+- [ ] `JWT_SECRET` is at least 32 characters and stored in your secrets manager
+- [ ] Database backups are enabled with point-in-time recovery
+- [ ] `ALLOWED_ORIGINS` is locked to your actual domain(s)
+- [ ] Paystack/Flutterwave **live** keys are stored as environment secrets, not committed
+- [ ] Rate limiting is configured (`RATE_LIMIT_RPS`, `RATE_LIMIT_BURST`)
+- [ ] Health check endpoint (`/health`) is wired to your load balancer
+- [ ] Structured logging is forwarded to a log aggregator (Datadog, Loki, CloudWatch)
+- [ ] A staging environment with **test** API keys mirrors production
+
+### Deployment Targets
+
+| Platform | Best for | Notes |
+|----------|---------|-------|
+| **Railway** | Quickest Go + Postgres setup | Native Docker, managed Postgres, one-click deploys |
+| **Fly.io** | Low-latency African regions | Lagos PoP available; persistent volumes for Postgres |
+| **Render** | Simple managed services | Free tier for prototyping; easy auto-deploys |
+| **GCP Cloud Run** | Scale-to-zero, global | Pairs well with Cloud SQL; strong West Africa region (Lagos) |
+| **Vercel** | Dashboard frontend | Zero-config for Vite/React; instant global CDN |
+| **Cloudflare Pages** | Dashboard frontend | Free tier generous; edge network covers Africa well |
+
+---
+
+## Planned App Improvements
+
+### API
+- **Multi-currency settlement** — track transactions in originating currency; settle in merchant's preferred currency with daily FX snapshots
+- **Webhook retries with backoff** — the queue infrastructure is there; add exponential backoff (30s → 5min → 30min → 2h) and a dead-letter queue
+- **Transaction search** — full-text search across reference, email, metadata; essential once transaction volume grows
+- **Merchant team members** — invite additional users with viewer/admin roles; currently only the owner can log in
+- **Audit log viewer** — the `audit_log` table is being written; expose it as a dashboard page so merchants can see who did what
+- **Webhook event filtering** — let merchants subscribe only to specific events (e.g. `charge.success` but not `refund.processed`)
+- **Idempotency** — accept `Idempotency-Key` header on the `/payments/charge` endpoint to safely retry failed requests
+
+### Dashboard
+- **Real-time updates** — use Server-Sent Events or WebSocket to push new transactions to the dashboard without polling
+- **Export to CSV/Excel** — let merchants download transaction history for accounting
+- **Transaction detail page** — dedicated route per transaction with full timeline, provider response JSON, and audit trail
+- **Dark/light theme toggle** — currently dark-only; add a system preference toggle
+- **Notification center** — in-app alerts for failed webhooks, new transactions above threshold, provider downtime
+
+### Security
+- **IP allowlisting** for API keys — restrict server-to-server keys to known IP ranges
+- **Webhook signature verification UI** — show merchants how to verify `PayVault-Signature` with example code in their language
+- **Key rotation** — allow merchants to rotate provider credentials without downtime
+- **2FA for dashboard login** — TOTP support when GitHub OAuth is not used
+
+---
+
+## African Fintech Collaboration
+
+PayVault is built for the African payments ecosystem. We believe fragmentation is the biggest barrier to financial inclusion — every country has different providers, currencies, and regulations that force developers to rewrite the same code repeatedly.
+
+### How to Collaborate
+
+**Payment Processors**
+If you operate a payment gateway in Africa and want to be a first-class PayVault provider, we welcome official integration partnerships. A maintained provider plugin means your API is accessible to every developer using PayVault. Reach out to discuss:
+- Co-maintaining the provider implementation
+- Getting listed in the official provider registry
+- Test sandbox access and shared QA
+
+**Fintech Startups & Platforms**
+If you're building on top of PayVault or embedding it in your platform (lending, e-commerce, SaaS billing), we'd love to feature you as a case study and align on shared infrastructure needs like:
+- Shared webhook schemas for cross-platform event streaming
+- Unified KYC/KYB data formats
+- Interoperable subscription billing across borders
+
+**Pan-African Interoperability Initiatives**
+PayVault aligns with several ongoing continental efforts:
+
+| Initiative | Relevance |
+|------------|-----------|
+| **PAPSS** (Pan-African Payment & Settlement System) | Instant cross-border payments in local currencies across 54 countries — PayVault's unified interface is a natural fit for PAPSS-connected providers |
+| **AfCFTA** Digital Trade Protocol | Harmonised digital payments infrastructure across free-trade zone members |
+| **GSMA Mobile Money API** | Standard API for mobile money interoperability; aligns with PayVault's provider abstraction model |
+| **Open Banking Africa** | Shared data standards for account information and payment initiation; PayVault's webhook format is designed to be OBA-compatible |
+
+**Developer Community**
+- Join the discussion on [GitHub Discussions](https://github.com/T9ner/payvault/discussions)
+- Share your integration story — we'll highlight African developers building with PayVault
+- Translate documentation into French, Swahili, Hausa, Yoruba, or Igbo to reach more developers across the continent
+
+> *"The best payment infrastructure for Africa will be built by Africans, for Africans — one abstraction layer at a time."*
+
+---
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
