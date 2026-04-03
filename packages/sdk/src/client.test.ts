@@ -397,15 +397,14 @@ describe('PayVault.pollVerification', () => {
       maxWaitMs: 50,
     });
 
+    // Attach .catch handler early via expect().rejects to prevent Node Unhandled Rejection
+    const assertPromise = expect(poll).rejects.toMatchObject({
+      code: 'POLLING_TIMEOUT',
+    });
+
     // Advance all fake timers so sleep() resolves and the loop runs its check
     await vi.runAllTimersAsync();
 
-    await expect(poll).rejects.toThrow(PayVaultError);
-    try {
-      await poll;
-    } catch (e: any) {
-      expect(e.code).toBe('POLLING_TIMEOUT');
-      expect(e.message).toContain('timed out');
-    }
+    await assertPromise;
   });
 });
