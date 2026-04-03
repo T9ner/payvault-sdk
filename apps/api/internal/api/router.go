@@ -105,6 +105,12 @@ func NewRouter(h *Handlers, authMW *middleware.AuthMiddleware, rateLimiter *midd
 				r.Post("/logs/{id}/retry", h.RetryWebhook)
 			})
 
+			// Analytics
+			r.Route("/analytics", func(r chi.Router) {
+				r.Get("/volume", h.GetAnalyticsVolume)
+				r.Get("/overview", h.GetOverviewStats)
+			})
+
 			// Transactions (Dashboard View)
 			r.Route("/transactions", func(r chi.Router) {
 				r.Get("/", h.ListTransactions)

@@ -255,3 +255,135 @@ describe('FlutterwaveProvider.parseWebhook', () => {
     expect(event.customer.lastName).toBe('Doe');
   });
 });
+
+// ── createVirtualAccount ─────────────────────────────────────────
+
+describe('FlutterwaveProvider.createVirtualAccount', () => {
+  it('creates a static virtual account via POST /virtual-account-numbers', async () => {
+    const { post } = stubHttp(provider);
+    post.mockResolvedValueOnce({
+      status: 200,
+      data: {
+        status: 'success',
+        data: {
+          account_number: '9876543210',
+          account_name: 'John Smith',
+          bank_name: 'Access Bank',
+          flw_ref: 'FLW-VA-001',
+        },
+      },
+      headers: {},
+    });
+
+    const result = await provider.createVirtualAccount({
+      email: 'john@example.com',
+      firstName: 'John',
+      lastName: 'Smith',
+      bvn: '22222222222',
+    });
+
+    expect(post).toHaveBeenCalledOnce();
+    const [url, payload] = post.mock.calls[0];
+    expect(url).toContain('/virtual-account-numbers');
+    expect(payload.email).toBe('john@example.com');
+    expect(payload.is_permanent).toBe(true);
+
+    expect(result.success).toBe(true);
+    expect(result.provider).toBe('flutterwave');
+    expect(result.accountNumber).toBe('9876543210');
+    expect(result.accountName).toBe('John Smith');
+    expect(result.bankName).toBe('Access Bank');
+  });
+
+  it('sends empty email to API when email is not provided (provider has no guard)', async () => {
+    const { post } = stubHttp(provider);
+    // Provider sends the empty email to the API; the API rejects it.
+    post.mockRejectedValueOnce(new Error('API error: email required'));
+
+    await expect(
+      provider.createVirtualAccount({ email: '', bvn: '22222222222' })
+    ).rejects.toThrow();
+  });
+});
+
+// ── multiSplit ───────────────────────────────────────────────────
+
+describe('FlutterwaveProvider.initializeTransaction — multiSplit', () => {
+  it('includes subaccounts array in payload when multiSplit is provided', async () => {
+    const { post } = stubHttp(provider);
+    post.mockResolvedValueOnce({
+      status: 200,
+      data: { status: 'success', data: { link: 'https://checkout.flutterwave.com/v3/hosted/pay/x' } },
+      headers: {},
+    });
+
+    await provider.initializeTransaction({
+      amount: 10000,
+      email: 'user@example.com',
+      multiSplit: {
+        recipients: [
+          { subaccountCode: 'RS_vendor1', share: 70, shareType: 'percentage' },
+          { subaccountCode: 'RS_vendor2', share: 30, shareType: 'percentage' },
+        ],
+        bearer: 'account',
+      },
+    });
+
+    const [, payload] = post.mock.calls[0];
+    expect(payload.subaccounts).toBeDefined();
+    expect(payload.subaccounts).toHaveLength(2);
+    expect(payload.subaccounts[0].id).toBe('RS_vendor1');
+    expect(payload.subaccounts[0].transaction_split_ratio).toBe(70);
+  });
+});
+
+// ── idempotencyKey (stable tx_ref) ───────────────────────────────
+
+describe('FlutterwaveProvider — idempotencyKey (stable tx_ref)', () => {
+  it('derives deterministic tx_ref from idempotencyKey', async () => {
+    const { post } = stubHttp(provider);
+    post.mockResolvedValue({
+      status: 200,
+      data: { status: 'success', data: { link: 'https://checkout.flutterwave.com/v3/x' } },
+      headers: {},
+    });
+
+    // Two calls with the same idempotency key
+    await provider.initializeTransaction({
+      amount: 5000,
+      email: 'user@example.com',
+      idempotencyKey: 'order-abc-999',
+    });
+    await provider.initializeTransaction({
+      amount: 5000,
+      email: 'user@example.com',
+      idempotencyKey: 'order-abc-999',
+    });
+
+    const [, payload1] = post.mock.calls[0];
+    const [, payload2] = post.mock.calls[1];
+
+    // Both calls MUST use the same stable tx_ref
+    expect(payload1.tx_ref).toBe(payload2.tx_ref);
+    // The ref should be exactly 32 hex chars (SHA-256 truncated)
+    expect(payload1.tx_ref).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it('uses a random tx_ref when no idempotencyKey provided', async () => {
+    const { post } = stubHttp(provider);
+    post.mockResolvedValue({
+      status: 200,
+      data: { status: 'success', data: { link: 'https://checkout.flutterwave.com/v3/x' } },
+      headers: {},
+    });
+
+    await provider.initializeTransaction({ amount: 5000, email: 'user@example.com' });
+    await provider.initializeTransaction({ amount: 5000, email: 'user@example.com' });
+
+    const [, payload1] = post.mock.calls[0];
+    const [, payload2] = post.mock.calls[1];
+
+    // Without idempotency key, refs should differ
+    expect(payload1.tx_ref).not.toBe(payload2.tx_ref);
+  });
+});

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PayVault } from './client';
 import { PayVaultError } from './errors';
 import type {
@@ -287,5 +287,125 @@ describe('PayVault webhook handling', () => {
     await vault.handleWebhook('{}', 'sig');
     // handler should NOT be called because the mock returns type 'charge.success'
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+// ── pollVerification ─────────────────────────────────────────────
+
+describe('PayVault.pollVerification', () => {
+  let vault: PayVault;
+
+  beforeEach(() => {
+    vault = new PayVault({ provider: 'mock', secretKey: 'test' });
+    // Use fake timers to avoid real waits during tests
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('resolves immediately when the first verify returns success', async () => {
+    // verifyTransaction is already mocked to return status: 'success'
+    const poll = vault.pollVerification('pvt_mock_001', { maxWaitMs: 5000 });
+    // Flush any pending timers
+    await vi.runAllTimersAsync();
+    const result = await poll;
+
+    expect(result.success).toBe(true);
+    expect(result.status).toBe('success');
+    // verifyTransaction should have been called exactly once
+    const provider = (vault as any).provider;
+    expect(provider.verifyTransaction).toHaveBeenCalledOnce();
+  });
+
+  it('retries on pending status, resolves on second success', async () => {
+    const provider = (vault as any).provider;
+
+    // First call: pending, second call: success
+    (provider.verifyTransaction as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        success: false,
+        status: 'pending',
+        provider: 'mock',
+        reference: 'pvt_mock_001',
+        amount: 5000,
+        currency: 'NGN',
+        channel: 'card',
+        paidAt: null,
+        customer: { email: 'test@example.com' },
+        raw: {},
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        status: 'success',
+        provider: 'mock',
+        reference: 'pvt_mock_001',
+        amount: 5000,
+        currency: 'NGN',
+        channel: 'card',
+        paidAt: '2026-01-01T00:00:00Z',
+        customer: { email: 'test@example.com' },
+        raw: {},
+      });
+
+    const onPoll = vi.fn();
+    const poll = vault.pollVerification('pvt_mock_001', {
+      intervalMs: 100,
+      maxWaitMs: 10000,
+      onPoll,
+    });
+    await vi.runAllTimersAsync();
+    const result = await poll;
+
+    expect(result.status).toBe('success');
+    expect(provider.verifyTransaction).toHaveBeenCalledTimes(2);
+    expect(onPoll).toHaveBeenCalledTimes(2);
+    expect(onPoll).toHaveBeenNthCalledWith(1, 1, 'pending');
+    expect(onPoll).toHaveBeenNthCalledWith(2, 2, 'success');
+  });
+
+  it('throws PayVaultError with POLLING_TIMEOUT when maxWaitMs is exceeded', async () => {
+    const provider = (vault as any).provider;
+    const startTime = Date.now();
+
+    // Track how many times verify has been called to advance time on first call
+    let callCount = 0;
+    (provider.verifyTransaction as ReturnType<typeof vi.fn>)
+      .mockImplementation(async () => {
+        callCount++;
+        // After the first poll, advance the fake system clock past maxWaitMs
+        if (callCount === 1) {
+          vi.setSystemTime(startTime + 200); // 200ms > maxWaitMs of 50ms
+        }
+        return {
+          success: false,
+          status: 'pending',
+          provider: 'mock',
+          reference: 'pvt_mock_001',
+          amount: 5000,
+          currency: 'NGN',
+          channel: 'card',
+          paidAt: null,
+          customer: { email: 'test@example.com' },
+          raw: {},
+        };
+      });
+
+    const poll = vault.pollVerification('pvt_mock_001', {
+      intervalMs: 1000,
+      maxWaitMs: 50,
+    });
+
+    // Advance all fake timers so sleep() resolves and the loop runs its check
+    await vi.runAllTimersAsync();
+
+    await expect(poll).rejects.toThrow(PayVaultError);
+    try {
+      await poll;
+    } catch (e: any) {
+      expect(e.code).toBe('POLLING_TIMEOUT');
+      expect(e.message).toContain('timed out');
+    }
   });
 });

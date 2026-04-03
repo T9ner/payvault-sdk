@@ -63,7 +63,9 @@ export class FlutterwaveProvider implements Provider {
     }
 
     const currency = config.currency || this.defaultCurrency;
-    const reference = config.reference || generateReference('pvt_fw');
+    // Use a stable reference when idempotencyKey is provided (deterministic for retries)
+    const reference = config.reference
+      || (config.idempotencyKey ? stableReference(config.idempotencyKey) : generateReference('pvt_fw'));
 
     const payload: Record<string, any> = {
       tx_ref: reference,
