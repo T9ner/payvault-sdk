@@ -143,6 +143,13 @@ export const dashboard = {
 
   retryWebhook: (id: string) =>
     api.post(`/dashboard/webhooks/logs/${id}/retry`).then((r) => r.data),
+
+  // Analytics
+  getAnalyticsVolume: (days: number = 30) =>
+    api.get<any[]>("/dashboard/analytics/volume", { params: { days } }).then((r) => r.data),
+
+  getOverviewStats: (days: number = 30) =>
+    api.get<any>("/dashboard/analytics/overview", { params: { days } }).then((r) => r.data),
 };
 
 // ── Payments (API-key-protected, but we call from dashboard context) ──
