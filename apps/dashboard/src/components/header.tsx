@@ -1,100 +1,64 @@
-import { Moon, Sun, Bell, Search, LogOut, Menu } from "lucide-react";
-import { useTheme } from "@/lib/theme-provider";
+import { Bell, Search, Menu, ChevronRight } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger 
-} from "./ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
 
 export function Header({ setMobileOpen }: { setMobileOpen?: (open: boolean) => void }) {
-  const { theme, setTheme } = useTheme();
   const { pathname } = useLocation();
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
 
-  const getBreadcrumb = () => {
-    const path = pathname.split("/").filter(Boolean);
-    if (path.length <= 1) return "Overview";
-    
-    return path
-      .filter((p) => p !== "dashboard")
-      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-      .join(" / ");
+  const getBreadcrumbs = () => {
+    const segments = pathname.split("/").filter(Boolean);
+    if (segments.length === 1 && segments[0] === "dashboard") {
+      return (
+        <>
+          <span>Team</span>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground">Overview</span>
+        </>
+      );
+    }
+
+    return segments
+      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+      .map((label, i, arr) => (
+        <span key={label} className="flex items-center gap-2">
+          <span className={i === arr.length - 1 ? "text-foreground" : ""}>{label}</span>
+          {i < arr.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
+        </span>
+      ));
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b bg-[hsl(var(--background))] px-6 gap-4">
-      <div className="flex flex-1 items-center gap-4">
+    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/50 px-8 backdrop-blur-xl z-10">
+      <div className="flex items-center gap-4">
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden text-[hsl(var(--muted-foreground))]"
+          className="md:hidden text-muted-foreground hover:bg-accent"
           onClick={() => setMobileOpen?.(true)}
         >
           <Menu size={20} />
         </Button>
-        <div className="text-sm font-medium text-[hsl(var(--muted-foreground))] hidden sm:block">
-          Dashboard <span className="mx-2">/</span> <span className="text-[hsl(var(--foreground))]">{getBreadcrumb()}</span>
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          {getBreadcrumbs()}
         </div>
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Search Command Palette Triger (Visual Only) */}
-        <button className="hidden sm:flex items-center gap-2 h-9 w-64 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 text-sm text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--accent))]">
-          <Search size={14} className="opacity-50" />
-          <span className="flex-1 text-left">Search...</span>
-          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-[hsl(var(--muted))] px-1.5 font-mono text-[10px] font-medium opacity-100">
-            <span className="text-xs">⌘</span>K
-          </kbd>
+        {/* Command Palette Mockup */}
+        <div className="hidden md:flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-sm text-muted-foreground hover:border-accent cursor-pointer transition-colors group">
+          <Search className="h-4 w-4 group-hover:text-foreground" />
+          <span>Search...</span>
+          <kbd className="ml-2 rounded border border-border bg-muted px-1.5 text-[10px] text-muted-foreground">⌘K</kbd>
+        </div>
+
+        <button className="relative rounded-full p-2 hover:bg-accent transition-colors group">
+          <Bell className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
+          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]" />
         </button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="text-[hsl(var(--muted-foreground))]"
-        >
-          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          <span className="sr-only">Toggle theme</span>
-        </Button>
-
-        <Button variant="ghost" size="icon" className="text-[hsl(var(--muted-foreground))]">
-          <Bell size={18} />
-          <span className="sr-only">Notifications</span>
-        </Button>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-[hsl(var(--primary))] text-primary-foreground text-xs font-bold">
-                  {user?.business_name?.substring(0, 2).toUpperCase() || "PV"}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user?.business_name || "Merchant"}</p>
-                <p className="text-xs leading-none text-[hsl(var(--muted-foreground))]">
-                  {user?.email}
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-red-500 focus:text-red-500 cursor-pointer">
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/20 border border-white/10" title={user?.business_name || "Merchant"} />
       </div>
     </header>
   );

@@ -7,19 +7,48 @@ import {
   Loader2,
   AlertTriangle,
   ShieldOff,
+  ShieldCheck,
+  Zap,
+  Activity,
+  ChevronRight,
+  Fingerprint,
+  Target,
+  Settings2,
+  Lock
 } from "lucide-react";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 const ruleTypes = [
-  { value: "velocity", label: "Velocity Check", desc: "Max transactions per time window" },
-  { value: "amount_limit", label: "Amount Limit", desc: "Block transactions above threshold" },
-  { value: "duplicate", label: "Duplicate Detection", desc: "Detect duplicate payment attempts" },
-  { value: "geo_block", label: "Geo Blocking", desc: "Block transactions from specific regions" },
+  { value: "velocity", label: "Velocity Check", desc: "Max transactions per time window", icon: Zap },
+  { value: "amount_limit", label: "Amount Limit", desc: "Block transactions above threshold", icon: Target },
+  { value: "duplicate", label: "Duplicate Detection", desc: "Detect duplicate payment attempts", icon: Fingerprint },
+  { value: "geo_block", label: "Geo Blocking", desc: "Block transactions from specific regions", icon: Globe },
 ];
+
+function Globe({ className }: { className?: string }) {
+    return (
+        <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width="24" 
+            height="24" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            className={className}
+        >
+            <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+    )
+}
 
 export default function FraudPage() {
   const [events, setEvents] = useState<FraudEvent[]>([]);
@@ -64,154 +93,210 @@ export default function FraudPage() {
     }
   };
 
-  const actionColors: Record<string, string> = {
-    flag: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400 border-amber-200 dark:border-amber-900",
-    block: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400 border-red-200 dark:border-red-900",
-  };
-
   const columns: ColumnDef<FraudEvent>[] = [
     {
-      header: "Transaction",
-      accessorKey: (row) => <span className="font-mono text-xs">{row.transaction_id.slice(0, 16)}...</span>,
+      header: "Ref ID",
+      accessorKey: (row) => (
+        <div className="flex items-center gap-2 group/row">
+             <div className="p-1.5 bg-zinc-900 rounded-lg border border-zinc-800 group-hover/row:border-indigo-500/30 transition-colors">
+                <Activity className="h-3 w-3 text-zinc-500" />
+            </div>
+            <span className="font-mono text-[10px] text-zinc-400 group-hover/row:text-zinc-200 transition-colors">
+                {row.transaction_id.slice(0, 16)}...
+            </span>
+        </div>
+      ),
     },
     {
-      header: "Rule",
-      accessorKey: (row) => <span className="capitalize">{row.rule_type.replace(/_/g, " ")}</span>,
+      header: "Triggered Rule",
+      accessorKey: (row) => (
+        <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-white uppercase tracking-tight">{row.rule_type.replace(/_/g, " ")}</span>
+        </div>
+      ),
     },
     {
       header: "Risk Score",
       accessorKey: (row) => (
         <div className="flex items-center gap-3">
-          <div className="h-2.5 w-24 overflow-hidden rounded-full bg-[hsl(var(--muted))] border shadow-inner">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ease-out ${
+          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-900 border border-zinc-800 shadow-inner">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(row.risk_score, 100)}%` }}
+              className={cn(
+                "h-full rounded-full transition-all duration-1000",
                 row.risk_score > 80
-                  ? "bg-red-500"
+                  ? "bg-gradient-to-r from-red-600 to-rose-400"
                   : row.risk_score > 50
-                  ? "bg-amber-500"
-                  : "bg-emerald-500"
-              }`}
-              style={{ width: `${Math.min(row.risk_score, 100)}%` }}
+                  ? "bg-gradient-to-r from-amber-600 to-orange-400"
+                  : "bg-gradient-to-r from-emerald-600 to-teal-400"
+              )}
             />
           </div>
-          <span className="text-xs font-semibold w-6">{row.risk_score}</span>
+          <span className={cn(
+            "text-[10px] font-bold w-6",
+            row.risk_score > 80 ? "text-red-400" : row.risk_score > 50 ? "text-amber-400" : "text-emerald-400"
+          )}>{row.risk_score}</span>
         </div>
       ),
     },
     {
-      header: "Action",
+      header: "Action Take",
       accessorKey: (row) => (
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${actionColors[row.action_taken] || actionColors.flag}`}
-        >
+        <div className={cn(
+            "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-bold border uppercase tracking-wider",
+            row.action_taken === "block" 
+                ? "bg-red-500/5 text-red-500 border-red-500/20" 
+                : "bg-amber-500/5 text-amber-500 border-amber-500/20"
+        )}>
           {row.action_taken === "block" ? (
-            <ShieldOff size={12} />
+            <ShieldOff size={10} />
           ) : (
-            <AlertTriangle size={12} />
+            <AlertTriangle size={10} />
           )}
-          {row.action_taken.toUpperCase()}
-        </span>
+          {row.action_taken}
+        </div>
       ),
     },
     {
-      header: "Date",
-      accessorKey: (row) => <span className="text-[hsl(var(--muted-foreground))]">{formatDate(row.created_at)}</span>,
+      header: "Detected At",
+      accessorKey: (row) => <span className="text-zinc-500 text-xs">{formatDate(row.created_at)}</span>,
     },
   ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Fraud Protection"
-        description="Configure fraud rules and monitor suspicious activity"
-      />
-
-      <div className="rounded-xl border bg-[hsl(var(--card))] p-6 shadow-sm overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[hsl(var(--primary))]/5 blur-3xl rounded-full translate-x-10 -translate-y-10" />
-        <h3 className="mb-6 text-sm font-semibold tracking-tight">Configure Fraud Rule</h3>
-        <form onSubmit={handleSaveRule} className="space-y-6 relative">
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-2.5">
-              <label className="text-sm font-medium">Rule Type</label>
-              <select
-                value={ruleForm.rule_type}
-                onChange={(e) => setRuleForm({ ...ruleForm, rule_type: e.target.value })}
-                className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/30 transition-shadow"
-              >
-                {ruleTypes.map((rt) => (
-                  <option key={rt.value} value={rt.value}>
-                    {rt.label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] pl-1">
-                {ruleTypes.find((rt) => rt.value === ruleForm.rule_type)?.desc}
-              </p>
-            </div>
-            
-            <div className="space-y-2.5">
-              <label className="text-sm font-medium">Threshold Limit</label>
-              <input
-                type="number"
-                value={ruleForm.threshold}
-                onChange={(e) =>
-                  setRuleForm({ ...ruleForm, threshold: parseInt(e.target.value) || 0 })
-                }
-                min="1"
-                className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/30 transition-shadow"
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-2.5">
-              <label className="text-sm font-medium">Action on Detection</label>
-              <select
-                value={ruleForm.action}
-                onChange={(e) =>
-                  setRuleForm({ ...ruleForm, action: e.target.value as "flag" | "block" })
-                }
-                className="flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/30 transition-shadow"
-              >
-                <option value="flag">Flag for Review</option>
-                <option value="block">Block Transaction</option>
-              </select>
-            </div>
-            
-            <div className="flex flex-col justify-end pb-1.5">
-              <label className="flex cursor-pointer items-center justify-between sm:justify-start gap-4 p-3 rounded-lg border bg-[hsl(var(--accent))]/50 transition-colors hover:bg-[hsl(var(--accent))]/80">
-                <span className="text-sm font-medium">
-                  {ruleForm.enabled ? "Rule is Active" : "Rule is Disabled"}
-                </span>
-                <Switch 
-                  checked={ruleForm.enabled} 
-                  onCheckedChange={(checked) => setRuleForm({ ...ruleForm, enabled: checked })} 
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end pt-2 border-t mt-6">
-            <Button
-              type="submit"
-              disabled={saving}
-              className="gap-2"
-            >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save Configuration
-            </Button>
-          </div>
-        </form>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+           <div className="flex items-center gap-2 text-indigo-400 mb-1">
+              <ShieldAlert className="h-4 w-4" />
+              <span className="text-[10px] font-bold uppercase tracking-widest">Security Engine</span>
+           </div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Fraud Protection</h1>
+          <p className="text-zinc-400 mt-1">AI-powered risk mitigation and real-time transaction monitoring.</p>
+        </div>
+        
+        <div className="px-4 py-2 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl flex items-center gap-3">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-bold text-emerald-500 uppercase tracking-widest">Active Firewall</span>
+        </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={events}
-        loading={loading}
-        emptyIcon={ShieldAlert}
-        emptyTitle="No fraud events detected"
-        emptyDescription="Events will automatically appear here when any active fraud rules are triggered."
-      />
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <SpotlightCard className="xl:col-span-1 p-0 overflow-hidden border-zinc-800/50 bg-zinc-900/10 h-fit">
+              <div className="p-6 border-b border-zinc-800/50 flex items-center justify-between bg-zinc-900/30">
+                  <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                    <Settings2 className="h-4 w-4 text-indigo-400" />
+                    Logic Tuning
+                  </h3>
+                  <div className="p-2 bg-zinc-950 border border-zinc-800 rounded-xl">
+                      <Lock className="h-3.5 w-3.5 text-zinc-600" />
+                  </div>
+              </div>
+              
+              <form onSubmit={handleSaveRule} className="p-6 space-y-6">
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 px-1">Evaluation Strategy</label>
+                        <select
+                            value={ruleForm.rule_type}
+                            onChange={(e) => setRuleForm({ ...ruleForm, rule_type: e.target.value })}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5 text-sm font-bold text-white focus:outline-none focus:border-indigo-500/50 transition-all appearance-none cursor-pointer"
+                        >
+                            {ruleTypes.map((rt) => (
+                                <option key={rt.value} value={rt.value}>
+                                    {rt.label}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="mt-2 p-3 bg-indigo-500/5 border border-indigo-500/10 rounded-xl flex gap-3">
+                            {(() => {
+                                const Icon = ruleTypes.find(r => r.value === ruleForm.rule_type)?.icon || AlertTriangle;
+                                return <Icon className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
+                            })()}
+                            <p className="text-[11px] text-zinc-400 leading-relaxed italic">
+                                {ruleTypes.find((rt) => rt.value === ruleForm.rule_type)?.desc}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 px-1">Sensitivity Index</label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                value={ruleForm.threshold}
+                                onChange={(e) => setRuleForm({ ...ruleForm, threshold: parseInt(e.target.value) || 0 })}
+                                min="1"
+                                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5 text-sm font-bold text-white focus:outline-none focus:border-indigo-500/50 transition-all"
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-mono text-zinc-600">UNITS</div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 px-1">Policy Enforcement</label>
+                        <select
+                            value={ruleForm.action}
+                            onChange={(e) => setRuleForm({ ...ruleForm, action: e.target.value as "flag" | "block" })}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3.5 text-sm font-bold text-white focus:outline-none focus:border-indigo-500/50 transition-all appearance-none cursor-pointer"
+                        >
+                            <option value="flag">Flag for Audit</option>
+                            <option value="block">Automatic Drop</option>
+                        </select>
+                    </div>
+
+                    <div className="pt-2">
+                        <div className="flex items-center justify-between p-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 group hover:border-zinc-700 transition-colors">
+                            <div className="flex flex-col gap-0.5">
+                                <span className="text-xs font-bold text-white">Rule Status</span>
+                                <span className={cn("text-[10px] font-medium uppercase tracking-tighter", ruleForm.enabled ? "text-emerald-500" : "text-zinc-600")}>
+                                    {ruleForm.enabled ? "Currently Active" : "Bypass Mode"}
+                                </span>
+                            </div>
+                            <Switch 
+                                checked={ruleForm.enabled} 
+                                onCheckedChange={(checked) => setRuleForm({ ...ruleForm, enabled: checked })} 
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold py-4 text-white shadow-xl shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-2 mt-4"
+                >
+                    {saving ? <Loader2 size={18} className="animate-spin" /> : <><ShieldCheck size={18} /> Apply Logic</>}
+                </button>
+              </form>
+          </SpotlightCard>
+
+          <SpotlightCard className="xl:col-span-2 p-0 overflow-hidden border-zinc-800/50 flex flex-col min-h-[500px]">
+            <div className="p-6 border-b border-zinc-800/50 bg-zinc-900/30 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-indigo-400" />
+                    Incident Timeline
+                </h3>
+                <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-[10px] font-mono text-zinc-500">REAL-TIME MONITOR</span>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-x-auto">
+                <DataTable
+                    columns={columns}
+                    data={events}
+                    loading={loading}
+                    emptyIcon={ShieldAlert}
+                    emptyTitle="Threat level zero"
+                    emptyDescription="No anomalies detected. The system is operating within normal safety parameters."
+                    className="border-none"
+                />
+            </div>
+          </SpotlightCard>
+      </div>
     </div>
   );
 }
