@@ -32,6 +32,7 @@ type Handlers struct {
 	status      *services.StatusService
 	config      *config.Config
 	settings    *services.SettingsService
+	analytics   *services.AnalyticsService
 }
 
 type checkoutPageData struct {
@@ -355,6 +356,7 @@ func NewHandlers(
 	status *services.StatusService,
 	cfg *config.Config,
 	settings *services.SettingsService,
+	analytics *services.AnalyticsService,
 ) *Handlers {
 	return &Handlers{
 		auth:        auth,
@@ -368,6 +370,7 @@ func NewHandlers(
 		status:      status,
 		config:      cfg,
 		settings:    settings,
+		analytics:   analytics,
 	}
 }
 

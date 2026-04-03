@@ -88,6 +88,9 @@ func main() {
 	// Settings (API keys and provider creds)
 	settingsSvc := services.NewSettingsService(db, cryptoSvc)
 
+	// Analytics
+	analyticsSvc := services.NewAnalyticsService(db)
+
 	log.Println("services initialized")
 
 	// Removed Webhook deliverer from worker pool as it is now synchronous dispatch
@@ -116,6 +119,7 @@ func main() {
 		statusSvc,
 		cfg,
 		settingsSvc,
+		analyticsSvc,
 	)
 
 	router := api.NewRouter(handlers, authMW, rateLimiter)
