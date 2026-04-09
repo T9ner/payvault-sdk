@@ -21,6 +21,7 @@ import (
 
 // Handlers holds all HTTP handler dependencies.
 type Handlers struct {
+	db          *pgxpool.Pool
 	auth        *services.AuthService
 	transaction *services.TransactionService
 	providers   *services.ProviderRegistry
@@ -345,6 +346,7 @@ var checkoutErrorTmpl = template.Must(template.New("checkout-error").Parse(`<!DO
 </html>`))
 
 func NewHandlers(
+	db *pgxpool.Pool,
 	auth *services.AuthService,
 	txn *services.TransactionService,
 	providers *services.ProviderRegistry,
@@ -359,6 +361,7 @@ func NewHandlers(
 	analytics *services.AnalyticsService,
 ) *Handlers {
 	return &Handlers{
+		db:          db,
 		auth:        auth,
 		transaction: txn,
 		providers:   providers,
@@ -538,10 +541,10 @@ func (h *Handlers) ListTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"transactions": txns,
-		"total":        total,
-		"limit":        limit,
-		"offset":       offset,
+		"items": txns,
+		"total": total,
+		"limit": limit,
+		"page":  (offset / limit) + 1,
 	})
 }
 
@@ -582,10 +585,10 @@ func (h *Handlers) ListPaymentLinks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"links":  links,
-		"total":  total,
-		"limit":  limit,
-		"offset": offset,
+		"items": links,
+		"total": total,
+		"limit": limit,
+		"page":  (offset / limit) + 1,
 	})
 }
 
@@ -767,10 +770,10 @@ func (h *Handlers) ListWebhookLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"data":   entries,
-		"total":  total,
-		"limit":  limit,
-		"offset": offset,
+		"items": entries,
+		"total": total,
+		"limit": limit,
+		"page":  (offset / limit) + 1,
 	})
 }
 
@@ -1024,27 +1027,19 @@ func (h *Handlers) RecentActivity(w http.ResponseWriter, r *http.Request) {
 
 // GET /health
 func (h *Handlers) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	// Basic in-process health
 	health := map[string]interface{}{
 		"status":  "healthy",
 		"service": "payvault-api",
 		"version": "0.2.0",
 	}
-	// Additional readiness check: verify DB connectivity
-	if h.config != nil && h.config.DatabaseURL != "" {
-		ctx := r.Context()
-		pool, err := pgxpool.New(ctx, h.config.DatabaseURL)
-		if err != nil {
+
+	// Readiness check: ping the existing pool instead of creating a new one
+	if h.db != nil {
+		if err := h.db.Ping(r.Context()); err != nil {
 			health["status"] = "degraded"
-			health["db"] = "unreachable"
+			health["db"] = "unresponsive"
 		} else {
-			if err := pool.Ping(ctx); err != nil {
-				health["status"] = "degraded"
-				health["db"] = "unresponsive"
-			} else {
-				health["db"] = "ok"
-			}
-			pool.Close()
+			health["db"] = "ok"
 		}
 	}
 
@@ -1078,6 +1073,21 @@ func (h *Handlers) GenerateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	middleware.JSONResponse(w, http.StatusOK, key)
+}
+
+// GET /api/v1/dashboard/api-keys
+func (h *Handlers) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+
+	keys, err := h.settings.ListAPIKeys(r.Context(), merchantID)
+	if err != nil {
+		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"items": keys,
+	})
 }
 
 // POST /api/v1/dashboard/providers

@@ -48,7 +48,7 @@ export function useTransactions() {
       
       const data = await payments.listTransactions(params);
       
-      let txs = data.transactions || [];
+      let txs = data?.items || [];
       if (advFilters.minAmount) {
         txs = txs.filter((t: any) => (t.amount / 100) >= parseFloat(advFilters.minAmount));
       }
@@ -57,16 +57,16 @@ export function useTransactions() {
       }
 
       setTransactions(txs);
-      setTotal(data.total || 0);
+      setTotal(data?.total || 0);
     } catch (err: any) {
-      console.error("Ledger Sync Failure:", err);
+      console.error("Failed to load transactions:", err);
       setTransactions([]);
       setTotal(0);
-      toast.error("Gateway unstable. Reverts to local cache.");
+      toast.error("Failed to load transactions. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [page, filter, advFilters, toast]);
+  }, [page, filter, advFilters]);
 
   useEffect(() => {
     loadTransactions();
@@ -91,8 +91,8 @@ export function useTransactions() {
       setSelected(null);
       await loadTransactions();
     } catch (err: any) {
-      console.error("Refund Action Denied:", err);
-      toast.error("Reversal request blocked by provider gateway.");
+      console.error("Refund failed:", err);
+      toast.error("Refund request failed. Please try again.");
     } finally {
       setRefunding(false);
     }
@@ -100,7 +100,7 @@ export function useTransactions() {
 
   const handleCreateTransaction = async () => {
     if (!form.email || form.amount <= 0) {
-      toast.error("Insufficient customer data to open vector.");
+      toast.error("Please provide a valid email and amount.");
       return;
     }
     setCreating(true);
@@ -113,11 +113,11 @@ export function useTransactions() {
         reference: response.reference,
         authorization_url: response.authorization_url,
       });
-      toast.success("Flow initialized successfully.");
+      toast.success("Payment initialized successfully.");
       await loadTransactions();
     } catch (err: any) {
-      console.error("Flow Initialization Failed:", err);
-      toast.error("Gateway node unresponsive. Please retry.");
+      console.error("Payment initialization failed:", err);
+      toast.error("Failed to initialize payment. Please try again.");
     } finally {
       setCreating(false);
     }

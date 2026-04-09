@@ -26,18 +26,28 @@ import {
 // import { fallbackActivityData, fallbackPieData } from '@/data/mockData'
 
 export function Dashboard() {
-  const { stats, chartData, currencies, activeLinksCount } = useDashboard()
+  const { stats, chartData, currencies, activeLinksCount, isUsingFallback } = useDashboard()
 
   const primaryCurrency = currencies[0] || 'USD'
-  const displayVol = stats?.total_volume?.[primaryCurrency] || 0
-  const successRate = stats?.failure_rate !== undefined ? Math.max(0, 100 - stats.failure_rate) : 0
+  
+  // Use mock display stats entirely if fallback is active
+  const displayVol = isUsingFallback ? 4000 : (stats?.total_volume?.[primaryCurrency] || 0)
+  const successRate = isUsingFallback ? 99.8 : (stats?.failure_rate !== undefined ? Math.max(0, 100 - stats.failure_rate) : 0)
+  const displayTxCount = isUsingFallback ? 1248 : (stats?.total_count || 0)
+  const displayActiveLinks = isUsingFallback ? 4 : (activeLinksCount || 0)
   
   const activityData = chartData
-  const pieData = currencies.map((curr, idx) => ({
+  const pieData = isUsingFallback ? 
+    currencies.map((curr, idx) => ({
+      name: curr,
+      value: idx === 0 ? 4000 : (idx === 1 ? 2400 : 1000),
+      color: idx === 0 ? 'hsl(var(--foreground))' : 'hsl(var(--primary))'
+    })) 
+    : currencies.map((curr, idx) => ({
       name: curr,
       value: stats?.total_volume?.[curr] || 0,
-      color: idx === 0 ? '#0f172a' : idx === 1 ? '#3b82f6' : '#cbd5e1'
-  }))
+      color: idx === 0 ? 'hsl(var(--foreground))' : 'hsl(var(--primary))'
+    }))
 
   return (
     <>
@@ -81,7 +91,7 @@ export function Dashboard() {
                 <Activity className='h-4 w-4 text-muted-foreground' />
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-bold'>+{stats?.total_count || 0}</div>
+                <div className='text-2xl font-bold'>+{displayTxCount}</div>
                 <p className='text-xs text-muted-foreground mt-1'>
                   System processing optimally
                 </p>
@@ -94,7 +104,7 @@ export function Dashboard() {
                 <ShoppingBag className='h-4 w-4 text-muted-foreground' />
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-bold'>{activeLinksCount || 0}</div>
+                <div className='text-2xl font-bold'>{displayActiveLinks}</div>
                 <p className='text-xs text-muted-foreground mt-1'>
                   Public endpoints
                 </p>

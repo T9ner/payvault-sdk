@@ -21,13 +21,13 @@ export function useFraudProtection() {
       const data = await dashboard.listFraudEvents({ limit: 50 });
       setEvents(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      console.error("Firewall Sync Malfunction:", err);
+      console.error("Failed to load fraud events:", err);
       setEvents([]);
-      toast.error("Real-time event feed unresponsive. Displaying historical logs.");
+      toast.error("Couldn't load fraud events. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     loadEvents();
@@ -38,10 +38,10 @@ export function useFraudProtection() {
     setSaving(true);
     try {
       await dashboard.upsertFraudRule(ruleForm);
-      toast.success("Security engines recalibrated.");
+      toast.success("Fraud rule saved.");
     } catch (err: any) {
-      console.error("Policy Application Denied:", err);
-      toast.error("Failed to inject rule into security layer. Please audit parameters.");
+      console.error("Failed to save fraud rule:", err);
+      toast.error("Failed to save fraud rule. Please try again.");
     } finally {
       setSaving(false);
     }

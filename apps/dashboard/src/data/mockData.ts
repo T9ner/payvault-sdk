@@ -31,8 +31,8 @@ export const fraudRuleTypes = [
 ];
 
 export const settingsIntegrationResources = [
-    "DOCS/API_REFERENCE_v1",
-    "SDK/WEB_IMPLEMENTATION",
-    "OPS/SYSTEM_INTEGRITY",
-    "SEC/VAULT_ARCHITECTURE"
+    "API Reference",
+    "Web SDK Guide",
+    "Webhooks & Events",
+    "Security Best Practices"
 ];

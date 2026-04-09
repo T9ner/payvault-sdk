@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { dashboard } from "@/lib/api";
 import { toast } from "sonner";
 import type { PaymentLink, CreatePaymentLinkRequest } from "@/lib/types";
+import { copyToClipboard } from "@/lib/formatters";
+
+/** Checkout URL base: API origin + checkout path */
+const CHECKOUT_BASE = `${import.meta.env.VITE_API_URL}/api/v1/checkout`;
 
 export function usePaymentLinks() {
   const [links, setLinks] = useState<PaymentLink[]>([]);
@@ -12,7 +16,6 @@ export function usePaymentLinks() {
   
   const [linkToDeactivate, setLinkToDeactivate] = useState<string | null>(null);
   const [deactivating, setDeactivating] = useState(false);
-  
   
 
   const [form, setForm] = useState<CreatePaymentLinkRequest>({
@@ -26,19 +29,41 @@ export function usePaymentLinks() {
     setLoading(true);
     try {
       const data = await dashboard.listPaymentLinks();
-      setLinks(Array.isArray(data) ? data : (data as any)?.links || []);
+      setLinks(Array.isArray(data) ? data : (data as any)?.items || []);
     } catch (err: any) {
-      console.error("Vector Registry Load Error:", err);
+      console.error("Failed to load payment links:", err);
       setLinks([]);
-      toast.error("Distribution nodes unreachable. Retrying quietly.");
+      toast.error("Couldn't load payment links. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     loadLinks();
   }, [loadLinks]);
+
+  /** Build the shareable checkout URL for a link */
+  const getCheckoutUrl = (link: PaymentLink) =>
+    `${CHECKOUT_BASE}/${link.slug || link.id}`;
+
+  /** Copy checkout URL to clipboard */
+  const handleCopyLink = async (link: PaymentLink) => {
+    const url = getCheckoutUrl(link);
+    const ok = await copyToClipboard(url);
+    if (ok) {
+      setCopied(link.id);
+      toast.success("Link copied to clipboard.");
+      setTimeout(() => setCopied(""), 2000);
+    } else {
+      toast.error("Failed to copy link.");
+    }
+  };
+
+  /** Open checkout URL in a new tab */
+  const handleOpenLink = (link: PaymentLink) => {
+    window.open(getCheckoutUrl(link), "_blank");
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,11 +75,11 @@ export function usePaymentLinks() {
       });
       setShowCreate(false);
       setForm({ name: "", description: "", amount: 0, currency: "NGN" });
-      toast.success("Deployment successful. Vector active.");
+      toast.success("Payment link created.");
       await loadLinks();
     } catch (err: any) {
-      console.error("Vector Deployment Sequence Failed:", err);
-      toast.error("Failed to propagate payment vector. Verification needed.");
+      console.error("Failed to create payment link:", err);
+      toast.error("Failed to create payment link. Please try again.");
     } finally {
       setCreating(false);
     }
@@ -65,12 +90,12 @@ export function usePaymentLinks() {
     setDeactivating(true);
     try {
       await dashboard.deactivatePaymentLink(linkToDeactivate);
-      toast.success("Vector distribution terminated.");
+      toast.success("Payment link deactivated.");
       setLinkToDeactivate(null);
       await loadLinks();
     } catch (err: any) {
-      console.error("Vector Teardown Error:", err);
-      toast.error("Termination request timed out.");
+      console.error("Failed to deactivate link:", err);
+      toast.error("Failed to deactivate payment link.");
     } finally {
       setDeactivating(false);
     }
@@ -90,6 +115,9 @@ export function usePaymentLinks() {
       form,
       setForm,
       handleCreate,
-      handleDeactivate
+      handleDeactivate,
+      getCheckoutUrl,
+      handleCopyLink,
+      handleOpenLink
   };
 }

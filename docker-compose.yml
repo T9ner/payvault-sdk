@@ -7,6 +7,10 @@ services:
       - "8080:8080"
     env_file:
       - ./apps/api/.env
+    environment:
+      - DATABASE_URL=postgres://payvault:payvault@postgres:5432/payvault?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - PORT=8080
     depends_on:
       postgres:
         condition: service_healthy

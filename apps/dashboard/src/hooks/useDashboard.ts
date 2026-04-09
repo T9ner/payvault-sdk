@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { dashboard as dashboardApi, payments } from "@/lib/api";
 import { toast } from "sonner";
+import { fallbackActivityData } from "@/data/mockData";
+import type { PaginatedResponse, PaymentLink } from "@/lib/types";
 
 export function useDashboard() {
     const [stats, setStats] = useState<any>(null);
     const [chartData, setChartData] = useState<any[]>([]);
     const [currencies, setCurrencies] = useState<string[]>([]);
     const [activeLinksCount, setActiveLinksCount] = useState(0);
-    
+    const [isUsingFallback, setIsUsingFallback] = useState(false);
 
     const loadData = useCallback(async () => {
         try {
@@ -31,7 +33,7 @@ export function useDashboard() {
 
             setStats(oStats);
             
-            const linksArray = Array.isArray(linksData) ? linksData : ((linksData as any)?.links || []);
+            const linksArray = Array.isArray(linksData) ? linksData : ((linksData as unknown as PaginatedResponse<PaymentLink>)?.items || []);
             setActiveLinksCount(linksArray.filter((l: any) => l.is_active).length);
 
             const grouped: Record<string, Record<string, number>> = {};
@@ -45,25 +47,39 @@ export function useDashboard() {
                 });
             }
 
-            const today = new Date();
-            const timeline = Array.from({ length: 7 }).map((_, i) => {
-                const d = new Date(today);
-                d.setDate(d.getDate() - (6 - i));
-                const dateStr = d.toISOString().split("T")[0];
-                const nameStr = d.toLocaleDateString("en-US", { weekday: 'short' });
+            const currsArray = Array.from(currs);
+            
+            if (currsArray.length > 0) {
+                const today = new Date();
+                const timeline = Array.from({ length: 7 }).map((_, i) => {
+                    const d = new Date(today);
+                    d.setDate(d.getDate() - (6 - i));
+                    const dateStr = d.toISOString().split("T")[0];
+                    const nameStr = d.toLocaleDateString("en-US", { weekday: 'short' });
 
-                const dayData: any = { name: nameStr };
-                Array.from(currs).forEach(c => {
-                   dayData[c] = grouped[dateStr]?.[c] || 0;
+                    const dayData: any = { name: nameStr };
+                    currsArray.forEach(c => {
+                       dayData[c] = grouped[dateStr]?.[c] || 0;
+                    });
+                    return dayData;
                 });
-                return dayData;
-            });
 
-            setCurrencies(Array.from(currs));
-            setChartData(timeline);
+                setCurrencies(currsArray);
+                setChartData(timeline);
+                setIsUsingFallback(false);
+            } else {
+                // If the database is empty, provide fallbacks so the charts don't render broken
+                setCurrencies(['USD', 'EUR']);
+                setChartData(fallbackActivityData.map(d => ({
+                    name: d.name,
+                    USD: d.income,
+                    EUR: d.expense
+                })));
+                setIsUsingFallback(true);
+            }
         } catch (err: any) {
             console.error('Failed to load dashboard data overview:', err);
-            toast.error("Couldn't sync latest metrics. Proceeding with cached layout.");
+            toast.error("Couldn't load dashboard data. Showing sample data.");
         }
     }, []);
 
@@ -75,6 +91,7 @@ export function useDashboard() {
         stats,
         chartData,
         currencies,
-        activeLinksCount
+        activeLinksCount,
+        isUsingFallback
     };
 }

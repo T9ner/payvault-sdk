@@ -9,17 +9,32 @@ import {
   CardHeader,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useTransactions } from '@/hooks/useTransactions'
 import { formatCurrency, formatDate } from '@/lib/formatters'
 import { transactionStatusTabs } from '@/data/mockData'
 import { cn } from '@/lib/utils'
+import type { TransactionStatus } from '@/lib/types'
+import { Loader2 } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/transactions')({
   component: Transactions,
 })
 
+const statusStyles: Record<TransactionStatus, string> = {
+  pending: 'bg-amber-500/10 text-amber-500',
+  success: 'bg-emerald-500/10 text-emerald-500',
+  failed: 'bg-rose-500/10 text-rose-500',
+  refunded: 'bg-blue-500/10 text-blue-500',
+}
+
 function Transactions() {
-  const { filteredTransactions, filter, setFilter, setPage } = useTransactions()
+  const { 
+    loading, filteredTransactions, filter, setFilter, setPage,
+    createModalOpen, setCreateModalOpen, creating, form, setForm, handleCreateTransaction
+  } = useTransactions()
 
   return (
     <>
@@ -37,7 +52,7 @@ function Transactions() {
             <p className='text-sm text-muted-foreground'>View all incoming and outgoing payments.</p>
           </div>
           <div>
-            <Button>New Payment</Button>
+            <Button onClick={() => setCreateModalOpen(true)}>New Payment</Button>
           </div>
         </div>
 
@@ -66,24 +81,45 @@ function Transactions() {
                             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Reference</th>
                             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Customer</th>
                             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Amount</th>
+                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
                             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Gateway</th>
                             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Timestamp</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredTransactions.map(tx => (
-                            <tr key={tx.id} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                                <td className="p-4 align-middle">{tx.reference.slice(0, 12)}...</td>
-                                <td className="p-4 align-middle">{tx.email}</td>
-                                <td className="p-4 align-middle font-semibold">{formatCurrency(tx.amount, tx.currency)}</td>
-                                <td className="p-4 align-middle capitalize">{tx.provider}</td>
-                                <td className="p-4 align-middle text-muted-foreground">{formatDate(tx.created_at)}</td>
-                            </tr>
-                        ))}
-                        {filteredTransactions.length === 0 && (
+                        {loading ? (
+                            [...Array(5)].map((_, i) => (
+                                <tr key={i} className="border-b">
+                                    <td className="p-4"><Skeleton className="h-4 w-24" /></td>
+                                    <td className="p-4"><Skeleton className="h-4 w-36" /></td>
+                                    <td className="p-4"><Skeleton className="h-4 w-20" /></td>
+                                    <td className="p-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                                    <td className="p-4"><Skeleton className="h-4 w-20" /></td>
+                                    <td className="p-4"><Skeleton className="h-4 w-32" /></td>
+                                </tr>
+                            ))
+                        ) : filteredTransactions.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="p-6 text-center text-muted-foreground">No transactions match your criteria.</td>
+                                <td colSpan={6} className="p-6 text-center text-muted-foreground">No transactions match your criteria.</td>
                             </tr>
+                        ) : (
+                            filteredTransactions.map(tx => (
+                                <tr key={tx.id} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                                    <td className="p-4 align-middle font-mono text-xs">{tx.reference.slice(0, 14)}...</td>
+                                    <td className="p-4 align-middle">{tx.email}</td>
+                                    <td className="p-4 align-middle font-semibold">{formatCurrency(tx.amount, tx.currency)}</td>
+                                    <td className="p-4 align-middle">
+                                        <span className={cn(
+                                            "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full",
+                                            statusStyles[tx.status] || 'bg-muted text-muted-foreground'
+                                        )}>
+                                            {tx.status}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 align-middle capitalize">{tx.provider}</td>
+                                    <td className="p-4 align-middle text-muted-foreground">{formatDate(tx.created_at)}</td>
+                                </tr>
+                            ))
                         )}
                     </tbody>
                 </table>
@@ -91,6 +127,43 @@ function Transactions() {
           </CardContent>
         </Card>
       </Main>
+
+      <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>New Payment</DialogTitle>
+                  <DialogDescription className="sr-only">Create a new manual payment transaction.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                      <label htmlFor="email" className="text-sm font-medium">Customer Email</label>
+                      <Input
+                          id="email"
+                          type="email"
+                          value={form.email}
+                          onChange={(e) => setForm({ ...form, email: e.target.value })}
+                          placeholder="customer@example.com"
+                      />
+                  </div>
+                  <div className="grid gap-2">
+                      <label htmlFor="amount" className="text-sm font-medium">Amount (NGN)</label>
+                      <Input
+                          id="amount"
+                          type="number"
+                          value={form.amount || ''}
+                          onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
+                          placeholder="1000"
+                      />
+                  </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setCreateModalOpen(false)}>Cancel</Button>
+                  <Button onClick={handleCreateTransaction} disabled={creating}>
+                      {creating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</> : 'Proceed to Payment'}
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </>
   )
 }

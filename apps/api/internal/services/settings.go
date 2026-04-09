@@ -77,6 +77,36 @@ func (s *SettingsService) GenerateAPIKey(ctx context.Context, merchantID string)
 	}, nil
 }
 
+// ListAPIKeys returns all unrevoked API keys for the given merchant.
+func (s *SettingsService) ListAPIKeys(ctx context.Context, merchantID string) ([]*APIKey, error) {
+	query := `
+		SELECT id, key_prefix, created_at 
+		FROM api_keys 
+		WHERE merchant_id = $1 AND revoked = false
+		ORDER BY created_at DESC
+	`
+	rows, err := s.db.Query(ctx, query, merchantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch api keys: %w", err)
+	}
+	defer rows.Close()
+
+	var keys []*APIKey
+	for rows.Next() {
+		var key APIKey
+		if err := rows.Scan(&key.ID, &key.Prefix, &key.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan api key: %w", err)
+		}
+		keys = append(keys, &key)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("cursor error: %w", err)
+	}
+
+	return keys, nil
+}
+
 // RevokeAPIKey invalidates an API Key instantly
 func (s *SettingsService) RevokeAPIKey(ctx context.Context, merchantID, keyID string) error {
 	cmd, err := s.db.Exec(ctx, "UPDATE api_keys SET revoked = true WHERE id = $1 AND merchant_id = $2", keyID, merchantID)

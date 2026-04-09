@@ -182,17 +182,17 @@ export interface StatusTransition {
 
 // ── Pagination ──────────────────────────────────────────────
 export interface PaginatedResponse<T> {
-  data: T[];
+  items: T[];
   total: number;
   page: number;
-  per_page: number;
+  limit: number;
 }
 
 export interface TransactionListResponse {
-  transactions: Transaction[];
+  items: Transaction[];
   total: number;
   limit: number;
-  offset: number;
+  page: number;
 }
 
 // ── Dashboard Stats ─────────────────────────────────────────
