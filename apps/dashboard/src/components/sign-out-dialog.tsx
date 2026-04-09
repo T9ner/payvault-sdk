@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from '@tanstack/react-router'
 import { useAuthStore } from '@/stores/auth-store'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { removeCookie } from '@/lib/cookies'
 
 interface SignOutDialogProps {
   open: boolean
@@ -13,7 +14,10 @@ export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
   const { auth } = useAuthStore()
 
   const handleSignOut = () => {
+    // Clear Zustand state
     auth.reset()
+    // Belt-and-suspenders: also clear cookie directly
+    removeCookie('pv_token')
     // Preserve current location for redirect after sign-in
     const currentPath = location.href
     navigate({

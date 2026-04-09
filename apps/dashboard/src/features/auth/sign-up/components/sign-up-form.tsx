@@ -4,6 +4,10 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { IconFacebook, IconGithub } from '@/assets/brand-icons'
 import { cn } from '@/lib/utils'
+import { useNavigate } from '@tanstack/react-router'
+import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth-store'
+import { auth as apiAuth } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -18,10 +22,8 @@ import { PasswordInput } from '@/components/password-input'
 
 const formSchema = z
   .object({
-    email: z.email({
-      error: (iss) =>
-        iss.input === '' ? 'Please enter your email' : undefined,
-    }),
+    email: z.string().email('Please enter a valid email'),
+    business_name: z.string().min(1, 'Please enter your business name'),
     password: z
       .string()
       .min(1, 'Please enter your password')
@@ -43,19 +45,35 @@ export function SignUpForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
+      business_name: '',
       password: '',
       confirmPassword: '',
     },
   })
 
-  function onSubmit(data: z.infer<typeof formSchema>) {
-    setIsLoading(true)
-    // eslint-disable-next-line no-console
-    console.log(data)
+  const { auth } = useAuthStore()
+  const navigate = useNavigate()
 
-    setTimeout(() => {
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    setIsLoading(true)
+    try {
+      const response = await apiAuth.register(data)
+
+      // Set user and access token in store
+      auth.setUser(response.merchant)
+      auth.setAccessToken(response.token)
+      apiAuth.setToken(response.token)
+
+      toast.success(`Welcome to PayVault, ${response.merchant.business_name}!`)
+
+      // Redirect to dashboard
+      navigate({ to: '/', replace: true })
+    } catch (err: any) {
+      console.error('Registration Error:', err)
+      toast.error(err.message || 'Registration failed. Please try again.')
+    } finally {
       setIsLoading(false)
-    }, 3000)
+    }
   }
 
   return (
@@ -73,6 +91,19 @@ export function SignUpForm({
               <FormLabel>Email</FormLabel>
               <FormControl>
                 <Input placeholder='name@example.com' {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name='business_name'
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Business Name</FormLabel>
+              <FormControl>
+                <Input placeholder='Your Business Ltd' {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

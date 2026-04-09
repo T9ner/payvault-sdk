@@ -35,8 +35,8 @@ function Fraud() {
 
       <Main>
         <div className='mb-6'>
-          <h1 className='text-3xl font-bold tracking-tight'>Fraud Matrix</h1>
-          <p className='text-sm text-muted-foreground'>Configure kill-switches and review anomalous ledger events.</p>
+          <h1 className='text-3xl font-bold tracking-tight'>Fraud Protection</h1>
+          <p className='text-sm text-muted-foreground'>Configure fraud detection rules and review flagged events.</p>
         </div>
 
         <div className='grid grid-cols-1 xl:grid-cols-3 gap-6'>
@@ -45,13 +45,13 @@ function Fraud() {
                     <CardHeader className='pb-4 border-b border-border/50'>
                         <div className="flex items-center gap-3">
                             <Target className="h-5 w-5 text-rose-500" />
-                            <CardTitle className="text-base">Policy Injection</CardTitle>
+                            <CardTitle className="text-base">Fraud Rules</CardTitle>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-6 space-y-6">
                         <form onSubmit={handleSaveRule} className="space-y-6">
                             <div className="space-y-3">
-                                <label className="text-xs uppercase font-semibold text-muted-foreground">Rule Archetype</label>
+                                <label className="text-xs uppercase font-semibold text-muted-foreground">Rule Type</label>
                                 <div className="space-y-2">
                                     {fraudRuleTypes.map((t) => {
                                         const Icon = t.icon;
@@ -91,7 +91,7 @@ function Fraud() {
                             </div>
 
                             <div className="space-y-3">
-                                <label className="text-xs uppercase font-semibold text-muted-foreground">Action Protocol</label>
+                                <label className="text-xs uppercase font-semibold text-muted-foreground">Action</label>
                                 <div className="flex bg-muted/50 p-1 rounded-md">
                                     {['flag', 'block'].map(action => (
                                         <button
@@ -110,7 +110,7 @@ function Fraud() {
                             </div>
 
                             <Button disabled={saving} className="w-full mt-4" variant="default">
-                                Override Engine Params
+                                Save Rule
                             </Button>
                         </form>
                     </CardContent>
@@ -122,7 +122,7 @@ function Fraud() {
                     <CardHeader className='pb-4 border-b border-border/50'>
                          <div className="flex items-center gap-3">
                             <ShieldAlert className="h-5 w-5 text-muted-foreground" />
-                            <CardTitle className="text-base">Event Telemetry</CardTitle>
+                            <CardTitle className="text-base">Flagged Events</CardTitle>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-0 px-0">
@@ -142,8 +142,8 @@ function Fraud() {
                                             <div className="mx-auto w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mb-3">
                                                 <ShieldCheck className="h-6 w-6" />
                                             </div>
-                                            <p className="font-semibold text-foreground">Matrix Secure</p>
-                                            <p className="text-sm text-muted-foreground">No anomalies logged within the current cycle.</p>
+                                            <p className="font-semibold text-foreground">No Fraud Detected</p>
+                                            <p className="text-sm text-muted-foreground">No suspicious activity detected.</p>
                                         </td>
                                     </tr>
                                 ) : (

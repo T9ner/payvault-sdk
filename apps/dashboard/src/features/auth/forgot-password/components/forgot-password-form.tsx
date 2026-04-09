@@ -18,8 +18,8 @@ import {
 import { Input } from '@/components/ui/input'
 
 const formSchema = z.object({
-  email: z.email({
-    error: (iss) => (iss.input === '' ? 'Please enter your email' : undefined),
+  email: z.string().email({
+    message: 'Please enter a valid email',
   }),
 })
 

@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
-import Cookies from "js-cookie";
+import { getCookie, setCookie, removeCookie } from "@/lib/cookies";
 import type {
+  AuthResponse,
   Merchant,
   APIKey,
   ProviderCredentials,
@@ -28,7 +29,7 @@ const api: AxiosInstance = axios.create({
 
 // Attach JWT token to requests
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = Cookies.get("pv_token");
+  const token = getCookie("pv_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
     console.log("[API] Request with token to:", config.url);
@@ -56,42 +57,56 @@ api.interceptors.response.use(
     if (apiError && typeof apiError === "string") {
       error.message = apiError;
     }
+
+    // Auto-redirect on 401 for dashboard (JWT-protected) routes only.
+    // We scope this to /dashboard/ to avoid catching API-key endpoints.
+    const requestUrl = error.config?.url || "";
+    if (
+      error.response?.status === 401 &&
+      requestUrl.includes("/dashboard")
+    ) {
+      console.warn("[Auth] Session expired — redirecting to sign-in.");
+      removeCookie("pv_token");
+      if (typeof window !== "undefined" && !window.location.pathname.includes("/sign-in")) {
+        window.location.href = `/sign-in?redirect=${encodeURIComponent(window.location.pathname)}`;
+      }
+    }
+
     return Promise.reject(error);
   }
 );
 
-// ── NO automatic 401 redirect interceptor ───────────────────
-// Each page handles its own errors via try/catch or Promise.allSettled.
-// The old interceptor was nuking the cookie and redirecting on ANY 401,
-// which caused the "dashboard flashes then kicks to login" bug because
-// /payments/* endpoints return 401 when they expect an API key, not JWT.
-// ─────────────────────────────────────────────────────────────
-
 // ── Auth ────────────────────────────────────────────────────
 export const auth = {
+  login: (data: any) => 
+    api.post<AuthResponse>("/auth/login", data).then((r) => r.data),
+  
+  register: (data: any) => 
+    api.post<AuthResponse>("/auth/register", data).then((r) => r.data),
+
   getMe: () => api.get<Merchant>("/auth/me").then((r) => r.data),
 
   setToken: (token: string) => {
     console.log("[Auth] Setting token");
-    Cookies.set("pv_token", token, { expires: 7, sameSite: "lax", path: "/" });
+    setCookie("pv_token", token);
   },
 
   getToken: () => {
-    const token = Cookies.get("pv_token");
+    const token = getCookie("pv_token");
     console.log("[Auth] Getting token:", token ? "exists" : "missing");
     return token;
   },
 
   logout: () => {
     console.log("[Auth] Logging out");
-    Cookies.remove("pv_token");
+    removeCookie("pv_token");
     if (typeof window !== "undefined") {
       window.location.href = "/auth/login";
     }
   },
 
   isAuthenticated: () => {
-    const hasToken = !!Cookies.get("pv_token");
+    const hasToken = !!getCookie("pv_token");
     console.log("[Auth] Checking authentication:", hasToken);
     return hasToken;
   },
@@ -102,6 +117,8 @@ export const dashboard = {
   // API Keys
   generateAPIKey: () =>
     api.post<APIKey>("/dashboard/api-keys").then((r) => r.data),
+  listAPIKeys: () =>
+    api.get<{ items: APIKey[] }>("/dashboard/api-keys").then((r) => r.data.items),
 
   // Provider credentials
   saveProviderCredentials: (data: ProviderCredentials) =>

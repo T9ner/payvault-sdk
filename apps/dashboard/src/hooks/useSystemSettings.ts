@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { dashboard } from "@/lib/api";
 import { toast } from "sonner";
 import type { APIKey } from "@/lib/types";
@@ -14,7 +14,21 @@ export function useSystemSettings() {
   const [showSecret, setShowSecret] = useState(false);
   const [savingProvider, setSavingProvider] = useState(false);
 
-  
+  const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
+
+  const fetchKeys = async () => {
+    try {
+      const keys = await dashboard.listAPIKeys();
+      setApiKeys(keys || []);
+    } catch (err: any) {
+      console.error("Failed to load API keys:", err);
+    }
+  };
+
+
+  useEffect(() => {
+    fetchKeys();
+  }, []);
 
   const handleGenerateKey = async () => {
     if (
@@ -31,10 +45,11 @@ export function useSystemSettings() {
       const key = await dashboard.generateAPIKey();
       setApiKey(key);
       setShowKey(true);
-      toast.success("Cryptographic access vector established.");
+      await fetchKeys();
+      toast.success("API key generated successfully.");
     } catch (err: any) {
-      console.error("Vector Provisioning Aborted:", err);
-      toast.error("Internal service failure. Unable to allocate new key scope.");
+      console.error("Failed to generate API key:", err);
+      toast.error("Failed to generate API key. Please try again.");
     } finally {
       setGeneratingKey(false);
     }
@@ -49,10 +64,10 @@ export function useSystemSettings() {
         secret_key: secretKey,
       });
       setSecretKey("");
-      toast.success(`Vault synchronized for secondary processor.`);
+      toast.success("Provider credentials saved.");
     } catch (err: any) {
-      console.error("Downstream Encryption Override Failed:", err);
-      toast.error("Vault rejected payload validation. Connection secure.");
+      console.error("Failed to save provider credentials:", err);
+      toast.error("Failed to save credentials. Please try again.");
     } finally {
       setSavingProvider(false);
     }
@@ -73,6 +88,7 @@ export function useSystemSettings() {
     setShowSecret,
     savingProvider,
     handleGenerateKey,
-    handleSaveProvider
+    handleSaveProvider,
+    apiKeys
   };
 }

@@ -108,6 +108,7 @@ func main() {
 	// ── HTTP Handlers & Router ───────────────────────────────────
 
 	handlers := api.NewHandlers(
+		db,
 		authSvc,
 		txnSvc,
 		providers,

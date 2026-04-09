@@ -33,6 +33,8 @@ func NewRouter(h *Handlers, authMW *middleware.AuthMiddleware, rateLimiter *midd
 	r.Get("/health", h.HealthCheck)
 
 	r.Route("/api/v1", func(r chi.Router) {
+		// Health check (aliased for frontend client)
+		r.Get("/health", h.HealthCheck)
 
 		// ── Public & Protected: Auth ──────────────────────────
 		r.Route("/auth", func(r chi.Router) {
@@ -64,6 +66,7 @@ func NewRouter(h *Handlers, authMW *middleware.AuthMiddleware, rateLimiter *midd
 
 			// API Keys
 			r.Post("/api-keys", h.GenerateAPIKey)
+			r.Get("/api-keys", h.ListAPIKeys)
 
 			// Provider credentials
 			r.Post("/providers", h.SaveProviderCredentials)
