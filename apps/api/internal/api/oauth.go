@@ -68,7 +68,7 @@ func (h *Handlers) GithubCallback(w http.ResponseWriter, r *http.Request) {
 
 	cookieState, err := r.Cookie("oauth_state")
 	if err != nil || cookieState.Value != state {
-		http.Redirect(w, r, fmt.Sprintf("%s/auth/callback?error=invalid_state", h.config.FrontendURL), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, fmt.Sprintf("%s/callback?error=invalid_state", h.config.FrontendURL), http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -102,11 +102,11 @@ func (h *Handlers) GithubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("%s/auth/callback?token=%s", h.config.FrontendURL, jwtToken), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, fmt.Sprintf("%s/callback?token=%s", h.config.FrontendURL, jwtToken), http.StatusTemporaryRedirect)
 }
 
 func (h *Handlers) redirectWithError(w http.ResponseWriter, r *http.Request, code string) {
-	http.Redirect(w, r, fmt.Sprintf("%s/auth/callback?error=%s", h.config.FrontendURL, code), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, fmt.Sprintf("%s/callback?error=%s", h.config.FrontendURL, code), http.StatusTemporaryRedirect)
 }
 
 func (h *Handlers) exchangeGithubCode(ctx context.Context, code string) (string, error) {

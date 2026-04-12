@@ -44,7 +44,7 @@ func Load() *Config {
 		EncryptionKey:      getEnv("ENCRYPTION_KEY", "0000000000000000000000000000000000000000000000000000000000000000"),
 		GithubClientID:     getEnv("GITHUB_CLIENT_ID", ""),
 		GithubClientSecret: getEnv("GITHUB_CLIENT_SECRET", ""),
-		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:5173"),
+		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
 
 		RateLimitRPS:   getEnvInt("RATE_LIMIT_RPS", 100),
 		RateLimitBurst: getEnvInt("RATE_LIMIT_BURST", 200),

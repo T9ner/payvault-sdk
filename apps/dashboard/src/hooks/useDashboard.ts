@@ -11,7 +11,7 @@ export function useDashboard() {
     const [activeLinksCount, setActiveLinksCount] = useState(0);
     const [isUsingFallback, setIsUsingFallback] = useState(false);
 
-    const loadData = useCallback(async () => {
+    const refresh = useCallback(async () => {
         try {
             const [overviewRes, volumeRes, linksRes, txRes] = await Promise.allSettled([
                 dashboardApi.getOverviewStats(7),
@@ -24,13 +24,6 @@ export function useDashboard() {
             const vPoints = volumeRes.status === "fulfilled" ? volumeRes.value : [];
             const linksData = linksRes.status === "fulfilled" ? linksRes.value : [];
             
-            // Error handling pattern: Extract rejections to log but don't break the UI.
-            [overviewRes, volumeRes, linksRes, txRes].forEach((res, idx) => {
-                if (res.status === "rejected") {
-                    console.error(`Dashboard Fetch Error [Resource ${idx}]:`, res.reason);
-                }
-            });
-
             setStats(oStats);
             
             const linksArray = Array.isArray(linksData) ? linksData : ((linksData as unknown as PaginatedResponse<PaymentLink>)?.items || []);
@@ -68,7 +61,6 @@ export function useDashboard() {
                 setChartData(timeline);
                 setIsUsingFallback(false);
             } else {
-                // If the database is empty, provide fallbacks so the charts don't render broken
                 setCurrencies(['USD', 'EUR']);
                 setChartData(fallbackActivityData.map(d => ({
                     name: d.name,
@@ -79,19 +71,21 @@ export function useDashboard() {
             }
         } catch (err: any) {
             console.error('Failed to load dashboard data overview:', err);
-            toast.error("Couldn't load dashboard data. Showing sample data.");
         }
     }, []);
 
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        refresh();
+        const interval = setInterval(refresh, 30000); // refresh every 30s
+        return () => clearInterval(interval);
+    }, [refresh]);
 
     return {
         stats,
         chartData,
         currencies,
         activeLinksCount,
-        isUsingFallback
+        isUsingFallback,
+        refresh
     };
 }

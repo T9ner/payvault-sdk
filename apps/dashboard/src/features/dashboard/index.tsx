@@ -30,20 +30,14 @@ export function Dashboard() {
 
   const primaryCurrency = currencies[0] || 'USD'
   
-  // Use mock display stats entirely if fallback is active
-  const displayVol = isUsingFallback ? 4000 : (stats?.total_volume?.[primaryCurrency] || 0)
-  const successRate = isUsingFallback ? 99.8 : (stats?.failure_rate !== undefined ? Math.max(0, 100 - stats.failure_rate) : 0)
-  const displayTxCount = isUsingFallback ? 1248 : (stats?.total_count || 0)
-  const displayActiveLinks = isUsingFallback ? 4 : (activeLinksCount || 0)
+  // Use 0 as default if no data, instead of fake hardcoded numbers
+  const displayVol = stats?.total_volume?.[primaryCurrency] || 0
+  const successRate = stats?.failure_rate !== undefined ? Math.max(0, 100 - stats.failure_rate) : 0
+  const displayTxCount = stats?.total_count || 0
+  const displayActiveLinks = activeLinksCount || 0
   
   const activityData = chartData
-  const pieData = isUsingFallback ? 
-    currencies.map((curr, idx) => ({
-      name: curr,
-      value: idx === 0 ? 4000 : (idx === 1 ? 2400 : 1000),
-      color: idx === 0 ? 'hsl(var(--foreground))' : 'hsl(var(--primary))'
-    })) 
-    : currencies.map((curr, idx) => ({
+  const pieData = currencies.map((curr, idx) => ({
       name: curr,
       value: stats?.total_volume?.[curr] || 0,
       color: idx === 0 ? 'hsl(var(--foreground))' : 'hsl(var(--primary))'
