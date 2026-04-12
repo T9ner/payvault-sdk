@@ -1,4 +1,4 @@
-import { useSearch } from '@tanstack/react-router'
+import { Link, useSearch } from '@tanstack/react-router'
 import {
   Card,
   CardContent,
@@ -19,29 +19,29 @@ export function SignIn() {
         <CardHeader>
           <CardTitle className='text-lg tracking-tight'>Sign in</CardTitle>
           <CardDescription>
-            Enter your email and password below to <br />
-            log into your account
+            Continue with GitHub to log into your account. <br />
+            Email login is currently disabled.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <UserAuthForm redirectTo={redirect} />
         </CardContent>
         <CardFooter>
-          <p className='px-8 text-center text-sm text-muted-foreground'>
+          <p className='px-8 text-center text-sm text-muted-foreground transition-all duration-300'>
             By clicking sign in, you agree to our{' '}
-            <a
-              href='/terms'
+            <Link
+              to='/terms'
               className='underline underline-offset-4 hover:text-primary'
             >
               Terms of Service
-            </a>{' '}
+            </Link>{' '}
             and{' '}
-            <a
-              href='/privacy'
+            <Link
+              to='/privacy'
               className='underline underline-offset-4 hover:text-primary'
             >
               Privacy Policy
-            </a>
+            </Link>
             .
           </p>
         </CardFooter>

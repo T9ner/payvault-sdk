@@ -1,143 +1,49 @@
 import { useState } from 'react'
-import { z } from 'zod'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Link, useNavigate } from '@tanstack/react-router'
-import { Loader2, LogIn } from 'lucide-react'
-import { toast } from 'sonner'
-import { IconFacebook, IconGithub } from '@/assets/brand-icons'
-import { useAuthStore } from '@/stores/auth-store'
-import { sleep, cn } from '@/lib/utils'
+import { Loader2 } from 'lucide-react'
+import { IconGithub } from '@/assets/brand-icons'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { PasswordInput } from '@/components/password-input'
-import { auth as apiAuth } from '@/lib/api'
 
-const formSchema = z.object({
-  email: z.string().email({
-    message: 'Please enter a valid email',
-  }),
-  password: z
-    .string()
-    .min(1, 'Please enter your password')
-    .min(7, 'Password must be at least 7 characters long'),
-})
-
-interface UserAuthFormProps extends React.HTMLAttributes<HTMLFormElement> {
+interface UserAuthFormProps extends React.HTMLAttributes<HTMLDivElement> {
   redirectTo?: string
 }
 
-export function UserAuthForm({
-  className,
-  redirectTo,
-  ...props
-}: UserAuthFormProps) {
+export function UserAuthForm({ className, redirectTo: _redirectTo, ...props }: UserAuthFormProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const navigate = useNavigate()
-  const { auth } = useAuthStore()
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  })
-  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+  const handleGithubLogin = () => {
     setIsLoading(true)
-    try {
-      const response = await apiAuth.login(data)
-      
-      // Set user and access token in store
-      auth.setUser(response.merchant)
-      auth.setAccessToken(response.token)
-      apiAuth.setToken(response.token)
-
-      toast.success(`Welcome back, ${response.merchant.business_name}!`)
-
-      // Redirect to the stored location or default to dashboard
-      const targetPath = redirectTo || '/'
-      navigate({ to: targetPath, replace: true })
-    } catch (err: any) {
-      console.error('Login Error:', err)
-      toast.error(err.message || 'Invalid email or password. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+    window.location.href = `${apiUrl}/api/v1/auth/github`
   }
 
   return (
-    <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className={cn('grid gap-3', className)}
-        {...props}
+    <div className={cn('grid gap-6', className)} {...props}>
+      <Button
+        variant='outline'
+        type='button'
+        disabled={isLoading}
+        onClick={handleGithubLogin}
+        className='h-12 w-full text-base font-semibold transition-all hover:bg-secondary/50'
       >
-        <FormField
-          control={form.control}
-          name='email'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder='name@example.com' {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name='password'
-          render={({ field }) => (
-            <FormItem className='relative'>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <PasswordInput placeholder='********' {...field} />
-              </FormControl>
-              <FormMessage />
-              <Link
-                to='/forgot-password'
-                className='absolute end-0 -top-0.5 text-sm font-medium text-muted-foreground hover:opacity-75'
-              >
-                Forgot password?
-              </Link>
-            </FormItem>
-          )}
-        />
-        <Button className='mt-2' disabled={isLoading}>
-          {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
-          Sign in
-        </Button>
+        {isLoading ? (
+          <Loader2 className='mr-2 h-5 w-5 animate-spin' />
+        ) : (
+          <IconGithub className='mr-2 h-5 w-5' />
+        )}
+        Continue with GitHub
+      </Button>
 
-        <div className='relative my-2'>
-          <div className='absolute inset-0 flex items-center'>
-            <span className='w-full border-t' />
-          </div>
-          <div className='relative flex justify-center text-xs uppercase'>
-            <span className='bg-background px-2 text-muted-foreground'>
-              Or continue with
-            </span>
-          </div>
+      <div className='relative'>
+        <div className='absolute inset-0 flex items-center'>
+          <span className='w-full border-t border-muted' />
         </div>
-
-        <div className='grid grid-cols-2 gap-2'>
-          <Button variant='outline' type='button' disabled={isLoading}>
-            <IconGithub className='h-4 w-4' /> GitHub
-          </Button>
-          <Button variant='outline' type='button' disabled={isLoading}>
-            <IconFacebook className='h-4 w-4' /> Facebook
-          </Button>
+        <div className='relative flex justify-center text-xs uppercase'>
+          <span className='bg-background px-2 text-muted-foreground'>
+            Secure Authentication
+          </span>
         </div>
-      </form>
-    </Form>
+      </div>
+    </div>
   )
 }

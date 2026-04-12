@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { Logo } from '@/assets/logo'
 import { cn } from '@/lib/utils'
 import dashboardDark from './assets/dashboard-dark.png'
@@ -11,7 +12,7 @@ export function SignIn2() {
         <div className='mx-auto flex w-full flex-col justify-center space-y-2 py-8 sm:w-[480px] sm:p-8'>
           <div className='mb-4 flex items-center justify-center'>
             <Logo className='me-2' />
-            <h1 className='text-xl font-medium'>Shadcn Admin</h1>
+            <h1 className='text-xl font-medium'>PayVault</h1>
           </div>
         </div>
         <div className='mx-auto flex w-full max-w-sm flex-col justify-center space-y-2'>
@@ -25,19 +26,19 @@ export function SignIn2() {
           <UserAuthForm />
           <p className='px-8 text-center text-sm text-muted-foreground'>
             By clicking sign in, you agree to our{' '}
-            <a
-              href='/terms'
+            <Link
+              to='/terms'
               className='underline underline-offset-4 hover:text-primary'
             >
               Terms of Service
-            </a>{' '}
+            </Link>{' '}
             and{' '}
-            <a
-              href='/privacy'
+            <Link
+              to='/privacy'
               className='underline underline-offset-4 hover:text-primary'
             >
               Privacy Policy
-            </a>
+            </Link>
             .
           </p>
         </div>
@@ -54,14 +55,14 @@ export function SignIn2() {
           className='dark:hidden'
           width={1024}
           height={1151}
-          alt='Shadcn-Admin'
+          alt='PayVault Admin'
         />
         <img
           src={dashboardDark}
           className='hidden dark:block'
           width={1024}
           height={1138}
-          alt='Shadcn-Admin'
+          alt='PayVault Admin'
         />
       </div>
     </div>
