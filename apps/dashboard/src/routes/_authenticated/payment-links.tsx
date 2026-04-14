@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { usePaymentLinks } from '@/hooks/usePaymentLinks'
 import { formatCurrency, formatDate } from '@/lib/formatters'
-import { Link2, ExternalLink, Copy, Check, Loader2 } from 'lucide-react'
+import { Link2, ExternalLink, Copy, Check, Loader2, Trash2, AlertTriangle } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export const Route = createFileRoute('/_authenticated/payment-links')({
@@ -26,7 +26,8 @@ export const Route = createFileRoute('/_authenticated/payment-links')({
 function PaymentLinks() {
   const { 
     links, loading, showCreate, setShowCreate, creating, copied,
-    form, setForm, handleCreate, getCheckoutUrl, handleCopyLink, handleOpenLink
+    form, setForm, handleCreate, getCheckoutUrl, handleCopyLink, handleOpenLink,
+    linkToDelete, setLinkToDelete, deleting, handleDelete
   } = usePaymentLinks()
 
   return (
@@ -128,6 +129,15 @@ function PaymentLinks() {
                                 >
                                     <ExternalLink className="h-4 w-4" />
                                 </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => setLinkToDelete(link.id)}
+                                  title="Delete link"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -177,6 +187,26 @@ function PaymentLinks() {
                   <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
                   <Button onClick={handleCreate} disabled={creating}>
                       {creating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</> : 'Create Link'}
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!linkToDelete} onOpenChange={(open) => !open && setLinkToDelete(null)}>
+          <DialogContent className="max-w-md">
+              <DialogHeader>
+                  <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                    <AlertTriangle className="h-6 w-6 text-destructive" />
+                  </div>
+                  <DialogTitle className="text-center">Delete Payment Link?</DialogTitle>
+                  <DialogDescription className="text-center">
+                      This action cannot be undone. This link will be permanently removed and customers will no longer be able to use it.
+                  </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button variant="outline" onClick={() => setLinkToDelete(null)} className="flex-1">Cancel</Button>
+                  <Button variant="destructive" onClick={handleDelete} disabled={deleting} className="flex-1">
+                      {deleting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deleting...</> : 'Delete Link'}
                   </Button>
               </DialogFooter>
           </DialogContent>

@@ -16,6 +16,9 @@ export function usePaymentLinks() {
   
   const [linkToDeactivate, setLinkToDeactivate] = useState<string | null>(null);
   const [deactivating, setDeactivating] = useState(false);
+
+  const [linkToDelete, setLinkToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   
 
   const [form, setForm] = useState<CreatePaymentLinkRequest>({
@@ -101,23 +104,43 @@ export function usePaymentLinks() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!linkToDelete) return;
+    setDeleting(true);
+    try {
+      await dashboard.deletePaymentLink(linkToDelete);
+      toast.success("Payment link deleted.");
+      setLinkToDelete(null);
+      await loadLinks();
+    } catch (err: any) {
+      console.error("Failed to delete link:", err);
+      toast.error("Failed to delete payment link.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return {
-      links,
-      loading,
-      showCreate,
-      setShowCreate,
-      creating,
-      copied,
-      setCopied,
-      linkToDeactivate,
-      setLinkToDeactivate,
-      deactivating,
-      form,
-      setForm,
-      handleCreate,
-      handleDeactivate,
-      getCheckoutUrl,
-      handleCopyLink,
-      handleOpenLink
+    links,
+    loading,
+    showCreate,
+    setShowCreate,
+    creating,
+    copied,
+    setCopied,
+    linkToDeactivate,
+    setLinkToDeactivate,
+    deactivating,
+    linkToDelete,
+    setLinkToDelete,
+    deleting,
+    form,
+    setForm,
+    handleCreate,
+    handleDeactivate,
+    handleDelete,
+    getCheckoutUrl,
+    handleCopyLink,
+    handleOpenLink
   };
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { payments } from "@/lib/api";
+import { payments, dashboard } from "@/lib/api";
 import { toast } from "sonner";
 import type { Transaction, ChargeRequest } from "@/lib/types";
 
@@ -29,6 +29,7 @@ export function useTransactions() {
   });
 
   
+  const [stats, setStats] = useState<{ total_volume: Record<string, number>; total_count: number; failure_rate: number } | null>(null);
   const perPage = 20;
 
   const [form, setForm] = useState<ChargeRequest>({
@@ -46,7 +47,11 @@ export function useTransactions() {
       if (advFilters.provider !== "all") params.provider = advFilters.provider;
       if (advFilters.currency !== "all") params.currency = advFilters.currency;
       
-      const data = await payments.listTransactions(params);
+      // Fetch both transactions and stats
+      const [data, overviewStats] = await Promise.all([
+        payments.listTransactions(params),
+        dashboard.getOverviewStats()
+      ]);
       
       let txs = data?.items || [];
       if (advFilters.minAmount) {
@@ -58,6 +63,7 @@ export function useTransactions() {
 
       setTransactions(txs);
       setTotal(data?.total || 0);
+      setStats(overviewStats);
     } catch (err: any) {
       console.error("Failed to load transactions:", err);
       setTransactions([]);
@@ -160,6 +166,7 @@ export function useTransactions() {
       filteredTransactions,
       handleRefund,
       handleCreateTransaction,
-      resetCreateForm
+      resetCreateForm,
+      stats
   };
 }

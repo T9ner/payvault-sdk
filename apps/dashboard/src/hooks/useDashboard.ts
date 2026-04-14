@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { dashboard as dashboardApi, payments } from "@/lib/api";
 import { toast } from "sonner";
-import { fallbackActivityData } from "@/data/mockData";
 import type { PaginatedResponse, PaymentLink } from "@/lib/types";
 
 export function useDashboard() {
@@ -41,34 +40,25 @@ export function useDashboard() {
             }
 
             const currsArray = Array.from(currs);
+            const activeCurrencies = currsArray.length > 0 ? currsArray : ['NGN'];
             
-            if (currsArray.length > 0) {
-                const today = new Date();
-                const timeline = Array.from({ length: 7 }).map((_, i) => {
-                    const d = new Date(today);
-                    d.setDate(d.getDate() - (6 - i));
-                    const dateStr = d.toISOString().split("T")[0];
-                    const nameStr = d.toLocaleDateString("en-US", { weekday: 'short' });
+            const today = new Date();
+            const timeline = Array.from({ length: 7 }).map((_, i) => {
+                const d = new Date(today);
+                d.setDate(d.getDate() - (6 - i));
+                const dateStr = d.toISOString().split("T")[0];
+                const nameStr = d.toLocaleDateString("en-US", { weekday: 'short' });
 
-                    const dayData: any = { name: nameStr };
-                    currsArray.forEach(c => {
-                       dayData[c] = grouped[dateStr]?.[c] || 0;
-                    });
-                    return dayData;
+                const dayData: any = { name: nameStr };
+                activeCurrencies.forEach(c => {
+                    dayData[c] = grouped[dateStr]?.[c] || 0;
                 });
+                return dayData;
+            });
 
-                setCurrencies(currsArray);
-                setChartData(timeline);
-                setIsUsingFallback(false);
-            } else {
-                setCurrencies(['USD', 'EUR']);
-                setChartData(fallbackActivityData.map(d => ({
-                    name: d.name,
-                    USD: d.income,
-                    EUR: d.expense
-                })));
-                setIsUsingFallback(true);
-            }
+            setCurrencies(activeCurrencies);
+            setChartData(timeline);
+            setIsUsingFallback(currsArray.length === 0);
         } catch (err: any) {
             console.error('Failed to load dashboard data overview:', err);
         }

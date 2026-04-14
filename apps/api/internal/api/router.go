@@ -75,7 +75,8 @@ func NewRouter(h *Handlers, authMW *middleware.AuthMiddleware, rateLimiter *midd
 			r.Route("/links", func(r chi.Router) {
 				r.Post("/", h.CreatePaymentLink)
 				r.Get("/", h.ListPaymentLinks)
-				r.Delete("/{id}", h.DeactivatePaymentLink)
+				r.Delete("/{id}", h.DeletePaymentLink)
+				r.Post("/{id}/deactivate", h.DeactivatePaymentLink)
 			})
 
 			// Plans

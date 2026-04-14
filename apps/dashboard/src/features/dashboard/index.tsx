@@ -21,14 +21,15 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  Legend
 } from 'recharts'
 // import { fallbackActivityData, fallbackPieData } from '@/data/mockData'
 
 export function Dashboard() {
   const { stats, chartData, currencies, activeLinksCount, isUsingFallback } = useDashboard()
 
-  const primaryCurrency = currencies[0] || 'USD'
+  const primaryCurrency = currencies[0] || 'NGN'
   
   // Use 0 as default if no data, instead of fake hardcoded numbers
   const displayVol = stats?.total_volume?.[primaryCurrency] || 0
@@ -138,36 +139,98 @@ export function Dashboard() {
                 <CardTitle>Flow Matrix ({primaryCurrency})</CardTitle>
               </CardHeader>
               <CardContent className='pl-2'>
-                 <div className='h-[320px] w-full'>
+                 <div className='h-[320px] w-full relative'>
+                     {isUsingFallback && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-[1px] z-10 rounded-lg">
+                            <div className="text-center p-6 bg-background border rounded-2xl shadow-sm">
+                                <Activity className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
+                                <p className="text-sm font-medium">No transaction volume found</p>
+                                <p className="text-xs text-muted-foreground mt-1">Activity for the last 7 days will appear here.</p>
+                            </div>
+                        </div>
+                     )}
                     <ResponsiveContainer width='100%' height='100%'>
-                      <BarChart data={activityData}>
-                          <CartesianGrid strokeDasharray='3 3' vertical={false} stroke='hsl(var(--border))' />
-                          <XAxis
-                              dataKey='name'
-                              axisLine={false}
-                              tickLine={false}
-                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                              dy={10}
-                          />
-                          <YAxis
-                              axisLine={false}
-                              tickLine={false}
-                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                              width={50}
-                          />
-                          <Tooltip
-                              cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
-                              contentStyle={{
-                                  borderRadius: '0.5rem',
-                                  border: '1px solid hsl(var(--border))',
-                                  backgroundColor: 'hsl(var(--background))',
-                              }}
-                          />
-                          <Bar dataKey={primaryCurrency} fill='hsl(var(--foreground))' radius={[4, 4, 0, 0]} />
-                          {currencies[1] && (
-                              <Bar dataKey={currencies[1]} fill='hsl(var(--primary))' radius={[4, 4, 0, 0]} />
-                          )}
-                      </BarChart>
+                           <BarChart 
+                                data={activityData} 
+                                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                                barGap={4}
+                                categoryGap="20%"
+                           >
+                                  <CartesianGrid 
+                                    strokeDasharray='3 3' 
+                                    vertical={false} 
+                                    stroke='hsl(var(--border))' 
+                                    opacity={0.5}
+                                  />
+                                  <XAxis
+                                      dataKey='name'
+                                      axisLine={false}
+                                      tickLine={false}
+                                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                                      dy={10}
+                                  />
+                                  <YAxis
+                                      axisLine={false}
+                                      tickLine={false}
+                                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                                      width={60}
+                                      tickFormatter={(value) => 
+                                        new Intl.NumberFormat('en-US', {
+                                          notation: 'compact',
+                                          compactDisplay: 'short',
+                                          style: 'currency',
+                                          currency: primaryCurrency,
+                                          maximumFractionDigits: 1
+                                        }).format(value)
+                                      }
+                                  />
+                                  <Tooltip
+                                      cursor={{ fill: '#f1f5f9' }}
+                                      contentStyle={{
+                                          borderRadius: '0.8rem',
+                                          border: '1px solid hsl(var(--border))',
+                                          backgroundColor: 'hsl(var(--background))',
+                                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                                          color: 'hsl(var(--foreground))',
+                                      }}
+                                      itemStyle={{ fontSize: '12px', padding: '2px 0' }}
+                                      formatter={(value: number, name: string) => [
+                                        new Intl.NumberFormat('en-US', {
+                                          style: 'currency',
+                                          currency: name.length === 3 ? name : primaryCurrency,
+                                        }).format(value),
+                                        name
+                                      ]}
+                                  />
+                                  <Legend 
+                                    verticalAlign="top" 
+                                    align="right" 
+                                    height={36} 
+                                    iconType="circle"
+                                    wrapperStyle={{
+                                      paddingBottom: '20px',
+                                      fontSize: '12px',
+                                      fontWeight: 500
+                                    }}
+                                  />
+                                  <Bar 
+                                    name={primaryCurrency}
+                                    dataKey={primaryCurrency} 
+                                    fill='#6366f1' 
+                                    radius={[4, 4, 0, 0]} 
+                                    barSize={16}
+                                  />
+                                  {currencies.filter(c => c !== primaryCurrency).map((curr, idx) => (
+                                      <Bar 
+                                        key={curr}
+                                        name={curr}
+                                        dataKey={curr} 
+                                        fill={idx === 0 ? '#10b981' : idx === 1 ? '#f59e0b' : '#3b82f6'} 
+                                        radius={[4, 4, 0, 0]} 
+                                        barSize={16}
+                                      />
+                                  ))}
+                              </BarChart>
                     </ResponsiveContainer>
                  </div>
               </CardContent>

@@ -12,9 +12,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useSystemSettings } from '@/hooks/useSystemSettings'
-import { settingsIntegrationResources } from '@/data/mockData'
 import { copyToClipboard } from '@/lib/formatters'
-import { Terminal, Lock, Server, ShieldCheck, ChevronRight, Eye, EyeOff, Copy, Check } from 'lucide-react'
+import { Terminal, Lock, Server, ShieldCheck, Eye, EyeOff, Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/_authenticated/settings')({
@@ -80,7 +79,7 @@ function Settings() {
 
                         {apiKeys && apiKeys.length > 0 ? (
                             <div className="space-y-6">
-                                {apiKeys.map((k) => {
+                                {apiKeys.slice(0, 1).map((k) => {
                                     const isNewlyGenerated = apiKey?.id === k.id;
                                     const keyToCopy = isNewlyGenerated ? apiKey?.key : null;
                                     return (
@@ -119,7 +118,7 @@ function Settings() {
                         )}
 
                         <Button onClick={handleGenerateKey} disabled={generatingKey} className="w-full sm:w-auto">
-                            Generate API Key
+                            {apiKeys && apiKeys.length > 0 ? "Rotate API Key" : "Generate API Key"}
                         </Button>
                    </CardContent>
                </Card>
@@ -195,20 +194,6 @@ function Settings() {
                            <li className="flex gap-2"><div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0"/>Key changes are logged and reported via webhooks.</li>
                        </ul>
                    </CardContent>
-               </Card>
-
-               <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-xs uppercase tracking-widest text-muted-foreground">Developer Resources</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-2 flex flex-col gap-1">
-                        {settingsIntegrationResources.map(item => (
-                            <button key={item} className="w-full flex items-center justify-between py-2 text-left group">
-                                <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">{item}</span>
-                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                            </button>
-                        ))}
-                    </CardContent>
                </Card>
            </div>
         </div>
