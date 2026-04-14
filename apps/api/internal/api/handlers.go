@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -52,12 +53,24 @@ var checkoutTmpl = template.Must(template.New("checkout").Parse(`<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Name}} · PayVault</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            color-scheme: dark;
+            --bg: #020617;
+            --card-bg: #0f172a;
+            --card-border: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --input-bg: #020617;
         }
         * {
             box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
         }
         body {
             margin: 0;
@@ -65,176 +78,239 @@ var checkoutTmpl = template.Must(template.New("checkout").Parse(`<!DOCTYPE html>
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 24px;
-            background: #0f0f0f;
-            color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 20px;
+            background: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
         }
         .card {
             width: 100%;
-            max-width: 400px;
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 20px;
+            max-width: 440px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 20px 24px;
-            border-bottom: 1px solid #2a2a2a;
+        .header {
+            padding: 32px 32px 24px;
+            text-align: center;
         }
-        .brand-mark {
-            width: 36px;
-            height: 36px;
-            border-radius: 12px;
+        .brand-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--primary);
+            color: white;
+            border-radius: 14px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: #f5a623;
-            color: #0f0f0f;
-            font-weight: 800;
-            letter-spacing: 0.04em;
-        }
-        .brand-text {
-            font-size: 1.1rem;
             font-weight: 700;
-        }
-        .content {
-            padding: 24px;
+            font-size: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
         }
         h1 {
-            margin: 0 0 8px;
-            font-size: 1.5rem;
-            line-height: 1.2;
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
         }
         .description {
-            margin: 0 0 24px;
-            color: #a0a0a0;
-            line-height: 1.5;
-            white-space: pre-wrap;
+            margin: 8px 0 0;
+            color: var(--text-secondary);
+            font-size: 15px;
+            line-height: 1.6;
         }
-        .amount-display {
-            margin: 0 0 24px;
-            padding: 14px 16px;
-            border: 1px solid #2a2a2a;
-            border-radius: 14px;
-            background: #141414;
+        .amount-section {
+            margin: 24px 32px;
+            padding: 20px;
+            background: rgba(2, 6, 23, 0.5);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            text-align: center;
         }
         .amount-label {
             display: block;
-            margin-bottom: 6px;
-            color: #a0a0a0;
-            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
         }
         .amount-value {
-            font-size: 1.4rem;
+            font-size: 32px;
             font-weight: 700;
-            color: #f5a623;
+            color: var(--text-primary);
+            letter-spacing: -0.03em;
+        }
+        .form-container {
+            padding: 0 32px 32px;
         }
         form {
             display: grid;
-            gap: 16px;
+            gap: 20px;
         }
-        label {
+        .field-group {
             display: grid;
             gap: 8px;
-            font-size: 0.95rem;
+        }
+        label {
+            font-size: 14px;
             font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .input-wrapper {
+            position: relative;
         }
         input {
             width: 100%;
-            padding: 14px 16px;
-            border: 1px solid #2a2a2a;
-            border-radius: 14px;
-            background: #141414;
-            color: #ffffff;
-            font: inherit;
+            height: 52px;
+            padding: 0 16px;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            color: white;
+            font-family: inherit;
+            font-size: 16px;
+            transition: all 0.2s ease;
             outline: none;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         input:focus {
-            border-color: #f5a623;
-            box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.15);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
         }
         input::placeholder {
-            color: #666666;
+            color: #475569;
         }
-        .hint {
-            color: #a0a0a0;
-            font-size: 0.85rem;
+        .currency-prefix {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-weight: 600;
         }
-        button {
+        input.with-prefix {
+            padding-left: 56px;
+        }
+        .btn-pay {
             width: 100%;
-            padding: 14px 16px;
-            border: 0;
+            height: 56px;
+            background: var(--primary);
+            color: white;
+            border: none;
             border-radius: 14px;
-            background: #f5a623;
-            color: #0f0f0f;
-            font: inherit;
+            font-size: 16px;
             font-weight: 700;
             cursor: pointer;
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            transition: all 0.2s ease;
+            margin-top: 8px;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
         }
-        button:hover:not(:disabled) {
+        .btn-pay:hover:not(:disabled) {
+            background: var(--primary-hover);
             transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
         }
-        button:disabled {
-            opacity: 0.7;
+        .btn-pay:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .btn-pay:disabled {
+            opacity: 0.6;
             cursor: not-allowed;
-            transform: none;
         }
-        .error {
+        .error-message {
+            margin-top: 12px;
+            color: #ef4444;
+            font-size: 14px;
+            text-align: center;
             min-height: 20px;
-            color: #ff7b72;
-            font-size: 0.92rem;
+            font-weight: 500;
         }
         .footer {
-            margin-top: 20px;
-            color: #a0a0a0;
-            font-size: 0.9rem;
+            padding: 20px;
             text-align: center;
+            border-top: 1px solid var(--card-border);
+            background: rgba(2, 6, 23, 0.2);
+        }
+        .footer p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .footer svg {
+            color: var(--success);
         }
         .footer strong {
-            color: #ffffff;
+            color: var(--text-primary);
+        }
+        
+        /* Skeleton/Loading State */
+        .processing-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .7; }
         }
     </style>
 </head>
 <body>
     <main class="card">
-        <div class="brand">
-            <div class="brand-mark">PV</div>
-            <div class="brand-text">PayVault</div>
-        </div>
-        <div class="content">
+        <div class="header">
+            <div class="brand-icon">PV</div>
             <h1>{{.Name}}</h1>
             {{if .Description}}<p class="description">{{.Description}}</p>{{end}}
-            {{if eq .LinkType "fixed"}}
-            <div class="amount-display">
-                <span class="amount-label">Amount</span>
-                <div class="amount-value">{{.DisplayAmount}}</div>
-            </div>
-            {{end}}
+        </div>
+
+        {{if eq .LinkType "fixed"}}
+        <div class="amount-section">
+            <span class="amount-label">You pay</span>
+            <div class="amount-value">{{.DisplayAmount}}</div>
+        </div>
+        {{end}}
+
+        <div class="form-container">
             <form id="checkout-form">
                 {{if eq .LinkType "flexible"}}
-                <label for="amount">
-                    Amount ({{if .Currency}}{{.Currency}}{{else}}NGN{{end}})
-                    <input id="amount" name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="Enter amount" required>
-                    <span class="hint">Enter the amount in major units.</span>
-                </label>
+                <div class="field-group">
+                    <label for="amount">Amount to pay</label>
+                    <div class="input-wrapper">
+                        <span class="currency-prefix">{{if .Currency}}{{.Currency}}{{else}}NGN{{end}}</span>
+                        <input id="amount" name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00" required class="with-prefix">
+                    </div>
+                </div>
                 {{end}}
-                <label for="email">
-                    Customer Email
-                    <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
-                </label>
-                <button id="pay-btn" type="submit">{{if eq .LinkType "fixed"}}Pay {{.DisplayAmount}}{{else}}Continue to payment{{end}}</button>
-                <div id="error-msg" class="error" role="alert" aria-live="polite"></div>
+
+                <div class="field-group">
+                    <label for="email">Email Address</label>
+                    <div class="input-wrapper">
+                        <input id="email" name="email" type="email" autocomplete="email" placeholder="alex@example.com" required>
+                    </div>
+                </div>
+
+                <div id="error-msg" class="error-message" role="alert" aria-live="polite"></div>
+
+                <button id="pay-btn" class="btn-pay" type="submit">
+                    {{if eq .LinkType "fixed"}}Pay {{.DisplayAmount}}{{else}}Proceed to Payment{{end}}
+                </button>
             </form>
-            <div class="footer">🔒 Secured by <strong>PayVault</strong></div>
+        </div>
+
+        <div class="footer">
+            <p>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                Secured by <strong>PayVault</strong>
+            </p>
         </div>
     </main>
+
     <script>
         const form = document.getElementById('checkout-form');
         const btn = document.getElementById('pay-btn');
@@ -244,7 +320,7 @@ var checkoutTmpl = template.Must(template.New("checkout").Parse(`<!DOCTYPE html>
         form.addEventListener('submit', async function handlePay(e) {
             e.preventDefault();
             btn.disabled = true;
-            btn.textContent = 'Processing...';
+            btn.innerHTML = '<span class="processing-pulse">Processing...</span>';
             errorEl.textContent = '';
 
             const email = document.getElementById('email').value.trim();
@@ -254,7 +330,7 @@ var checkoutTmpl = template.Must(template.New("checkout").Parse(`<!DOCTYPE html>
             const amountInput = document.getElementById('amount').value;
             const parsedAmount = parseFloat(amountInput);
             if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-                errorEl.textContent = 'Enter a valid amount.';
+                errorEl.textContent = 'Please enter a valid amount.';
                 btn.disabled = false;
                 btn.textContent = payBtnText;
                 return;
@@ -273,9 +349,9 @@ var checkoutTmpl = template.Must(template.New("checkout").Parse(`<!DOCTYPE html>
                     window.location.href = json.data.authorization_url;
                     return;
                 }
-                errorEl.textContent = json.error || 'Payment failed. Please try again.';
+                errorEl.textContent = json.error || 'Payment initiation failed.';
             } catch (err) {
-                errorEl.textContent = 'Network error. Please try again.';
+                errorEl.textContent = 'Connection error. Check your internet.';
             }
 
             btn.disabled = false;
@@ -291,6 +367,9 @@ var checkoutErrorTmpl = template.Must(template.New("checkout-error").Parse(`<!DO
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout unavailable · PayVault</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
@@ -299,46 +378,64 @@ var checkoutErrorTmpl = template.Must(template.New("checkout-error").Parse(`<!DO
             align-items: center;
             justify-content: center;
             padding: 24px;
-            background: #0f0f0f;
-            color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #020617;
+            color: #f8fafc;
+            font-family: 'Outfit', sans-serif;
         }
         .card {
             width: 100%;
             max-width: 400px;
-            padding: 32px 24px;
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 20px;
+            padding: 48px 32px;
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 24px;
             text-align: center;
-            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-        .brand {
-            width: 48px;
-            height: 48px;
-            margin: 0 auto 18px;
-            border-radius: 16px;
-            display: inline-flex;
+        .icon-box {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 24px;
+            border-radius: 20px;
+            display: flex;
             align-items: center;
             justify-content: center;
-            background: #f5a623;
-            color: #0f0f0f;
-            font-weight: 800;
+            background: #1e293b;
+            color: #64748b;
         }
         h1 {
-            margin: 0 0 10px;
-            font-size: 1.5rem;
+            margin: 0 0 12px;
+            font-size: 22px;
+            font-weight: 700;
         }
         p {
             margin: 0;
-            color: #a0a0a0;
-            line-height: 1.5;
+            color: #94a3b8;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+        .btn-back {
+            display: inline-block;
+            margin-top: 32px;
+            padding: 12px 24px;
+            background: #334155;
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        .btn-back:hover {
+            background: #475569;
         }
     </style>
 </head>
 <body>
     <main class="card">
-        <div class="brand">PV</div>
+        <div class="icon-box">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        </div>
         <h1>Checkout unavailable</h1>
         <p>{{.}}</p>
     </main>
@@ -525,16 +622,27 @@ func (h *Handlers) RefundTransaction(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) ListTransactions(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r.Context())
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	if limit <= 0 || limit > 100 {
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+	
+	limit, _ := strconv.Atoi(limitStr)
+	offset, _ := strconv.Atoi(offsetStr)
+	
+	if limit <= 0 {
 		limit = 20
 	}
 	if offset < 0 {
 		offset = 0
 	}
 
-	txns, total, err := h.transaction.ListTransactions(r.Context(), merchantID, limit, offset)
+	status := strings.TrimSpace(r.URL.Query().Get("status"))
+	provider := strings.TrimSpace(r.URL.Query().Get("provider"))
+	currency := strings.TrimSpace(r.URL.Query().Get("currency"))
+
+	log.Printf("[DEBUG] ListTransactions request: merchant=%s, limit=%d, offset=%d, status=%s, provider=%s, currency=%s",
+		merchantID, limit, offset, status, provider, currency)
+
+	txns, total, err := h.transaction.ListTransactions(r.Context(), merchantID, limit, offset, status, provider, currency)
 	if err != nil {
 		middleware.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
@@ -593,6 +701,19 @@ func (h *Handlers) ListPaymentLinks(w http.ResponseWriter, r *http.Request) {
 }
 
 // DELETE /api/v1/dashboard/links/{id}
+func (h *Handlers) DeletePaymentLink(w http.ResponseWriter, r *http.Request) {
+	merchantID := middleware.GetMerchantID(r.Context())
+	linkID := chi.URLParam(r, "id")
+
+	if err := h.links.SoftDeleteLink(r.Context(), merchantID, linkID); err != nil {
+		middleware.ErrorResponse(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	middleware.JSONResponse(w, http.StatusOK, map[string]interface{}{"message": "Payment link deleted"})
+}
+
+// POST /api/v1/dashboard/links/{id}/deactivate
 func (h *Handlers) DeactivatePaymentLink(w http.ResponseWriter, r *http.Request) {
 	merchantID := middleware.GetMerchantID(r.Context())
 	linkID := chi.URLParam(r, "id")

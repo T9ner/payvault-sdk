@@ -57,6 +57,13 @@ func (s *SettingsService) GenerateAPIKey(ctx context.Context, merchantID string)
 	// Prefix for visual tracking (e.g. sk_live_1a2b3c)
 	prefix := rawToken[:15]
 
+	// Revoke all existing keys for this merchant first to enforce "one key per account"
+	revokeQuery := `UPDATE api_keys SET revoked = true WHERE merchant_id = $1 AND revoked = false`
+	_, err := s.db.Exec(ctx, revokeQuery, merchantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed revoking old api keys: %w", err)
+	}
+
 	query := `
 		INSERT INTO api_keys (merchant_id, key_hash, key_prefix)
 		VALUES ($1, $2, $3)
@@ -64,7 +71,7 @@ func (s *SettingsService) GenerateAPIKey(ctx context.Context, merchantID string)
 	`
 	var id string
 	var createdAt time.Time
-	err := s.db.QueryRow(ctx, query, merchantID, keyHash, prefix).Scan(&id, &createdAt)
+	err = s.db.QueryRow(ctx, query, merchantID, keyHash, prefix).Scan(&id, &createdAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed writing key hash to vault: %w", err)
 	}
@@ -84,6 +91,7 @@ func (s *SettingsService) ListAPIKeys(ctx context.Context, merchantID string) ([
 		FROM api_keys 
 		WHERE merchant_id = $1 AND revoked = false
 		ORDER BY created_at DESC
+		LIMIT 1
 	`
 	rows, err := s.db.Query(ctx, query, merchantID)
 	if err != nil {

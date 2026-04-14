@@ -120,7 +120,7 @@ func (s *PaymentLinkService) GetBySlug(ctx context.Context, slug string) (*Payme
 	err := s.db.QueryRow(ctx, `
 		SELECT id, slug, name, description, link_type, amount, currency, redirect_url,
 		       is_active, expires_at, total_paid, total_count, metadata, created_at
-		FROM payment_links WHERE slug = $1
+		FROM payment_links WHERE slug = $1 AND deleted_at IS NULL
 	`, slug).Scan(
 		&out.ID, &out.Slug, &out.Name, &description, &out.LinkType, &out.Amount,
 		&out.Currency, &redirectURL, &out.IsActive, &out.ExpiresAt,
@@ -174,7 +174,7 @@ func (s *PaymentLinkService) Checkout(ctx context.Context, slug string, input Ch
 
 	err := s.db.QueryRow(ctx, `
 		SELECT id, merchant_id, link_type, amount, currency, redirect_url, is_active, expires_at
-		FROM payment_links WHERE slug = $1
+		FROM payment_links WHERE slug = $1 AND deleted_at IS NULL
 	`, slug).Scan(&linkID, &merchantID, &linkType, &fixedAmount, &currency, &redirectURL, &isActive, &expiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("payment link not found")
@@ -260,7 +260,7 @@ func (s *PaymentLinkService) RecordPayment(ctx context.Context, linkID string, a
 
 func (s *PaymentLinkService) ListLinks(ctx context.Context, merchantID string, limit, offset int) ([]PaymentLinkOutput, int, error) {
 	var total int
-	err := s.db.QueryRow(ctx, `SELECT COUNT(*) FROM payment_links WHERE merchant_id = $1`, merchantID).Scan(&total)
+	err := s.db.QueryRow(ctx, `SELECT COUNT(*) FROM payment_links WHERE merchant_id = $1 AND deleted_at IS NULL`, merchantID).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -268,7 +268,7 @@ func (s *PaymentLinkService) ListLinks(ctx context.Context, merchantID string, l
 	rows, err := s.db.Query(ctx, `
 		SELECT id, slug, name, description, link_type, amount, currency, redirect_url,
 		       is_active, expires_at, total_paid, total_count, metadata, created_at
-		FROM payment_links WHERE merchant_id = $1
+		FROM payment_links WHERE merchant_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC LIMIT $2 OFFSET $3
 	`, merchantID, limit, offset)
 	if err != nil {
@@ -305,13 +305,27 @@ func (s *PaymentLinkService) ListLinks(ctx context.Context, merchantID string, l
 func (s *PaymentLinkService) DeactivateLink(ctx context.Context, merchantID, linkID string) error {
 	result, err := s.db.Exec(ctx, `
 		UPDATE payment_links SET is_active = false, updated_at = NOW()
-		WHERE id = $1 AND merchant_id = $2
+		WHERE id = $1 AND merchant_id = $2 AND deleted_at IS NULL
 	`, linkID, merchantID)
 	if err != nil {
 		return err
 	}
 	if result.RowsAffected() == 0 {
 		return fmt.Errorf("payment link not found")
+	}
+	return nil
+}
+
+func (s *PaymentLinkService) SoftDeleteLink(ctx context.Context, merchantID, linkID string) error {
+	result, err := s.db.Exec(ctx, `
+		UPDATE payment_links SET deleted_at = NOW(), is_active = false, updated_at = NOW()
+		WHERE id = $1 AND merchant_id = $2 AND deleted_at IS NULL
+	`, linkID, merchantID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("payment link not found meta")
 	}
 	return nil
 }

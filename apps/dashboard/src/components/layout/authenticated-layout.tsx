@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet } from '@tanstack/react-router'
 import { getCookie } from '@/lib/cookies'
 import { cn } from '@/lib/utils'
@@ -6,6 +7,8 @@ import { SearchProvider } from '@/context/search-provider'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { SkipToMain } from '@/components/skip-to-main'
+import { useAuthStore } from '@/stores/auth-store'
+import { auth as apiAuth } from '@/lib/api'
 
 type AuthenticatedLayoutProps = {
   children?: React.ReactNode
@@ -13,6 +16,18 @@ type AuthenticatedLayoutProps = {
 
 export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
+  const { auth } = useAuthStore()
+
+  // Rehydrate user on every mount (e.g. after page refresh)
+  // The token survives in a cookie but the Zustand store resets.
+  useEffect(() => {
+    if (!auth.user) {
+      apiAuth.getMe()
+        .then((merchant) => auth.setUser(merchant))
+        .catch(() => { /* token expired — beforeLoad will redirect */ })
+    }
+  }, [auth])
+
   return (
     <SearchProvider>
       <LayoutProvider>

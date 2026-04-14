@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -29,6 +31,7 @@ type Merchant struct {
 	ID           string `json:"id"`
 	BusinessName string `json:"business_name"`
 	Email        string `json:"email"`
+	AvatarURL    string `json:"avatar_url"`
 }
 
 // ── AuthService ──────────────────────────────────────────────────
@@ -136,9 +139,9 @@ func (s *AuthService) AuthenticateMerchant(ctx context.Context, email, password 
 func (s *AuthService) GetMerchantByID(ctx context.Context, id string) (*Merchant, error) {
 	var merchant Merchant
 	err := s.db.QueryRow(ctx,
-		`SELECT id, business_name, email FROM merchants WHERE id = $1 AND is_active = true`,
+		`SELECT id, business_name, email, COALESCE(avatar_url, '') FROM merchants WHERE id = $1 AND is_active = true`,
 		id,
-	).Scan(&merchant.ID, &merchant.BusinessName, &merchant.Email)
+	).Scan(&merchant.ID, &merchant.BusinessName, &merchant.Email, &merchant.AvatarURL)
 	if err != nil {
 		return nil, ErrMerchantNotFound
 	}
@@ -173,25 +176,34 @@ func (s *AuthService) ValidateAPIKey(ctx context.Context, rawKey string) (string
 	}
 
 	rows, err := s.db.Query(ctx,
-		`SELECT id, merchant_id, key_hash, environment, is_secret
-		 FROM api_keys WHERE prefix = $1 AND is_active = true`, prefix)
+		`SELECT id, merchant_id, key_hash
+		 FROM api_keys WHERE key_prefix = $1 AND revoked = false`, prefix)
 	if err != nil {
 		return "", "", false, fmt.Errorf("query api keys: %w", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var keyID, merchantID, keyHash, env string
-		var isSecret bool
+		var keyID, merchantID, keyHash string
 
-		if err := rows.Scan(&keyID, &merchantID, &keyHash, &env, &isSecret); err != nil {
+		if err := rows.Scan(&keyID, &merchantID, &keyHash); err != nil {
 			continue
 		}
 
-		if bcrypt.CompareHashAndPassword([]byte(keyHash), []byte(rawKey)) == nil {
+		// Use sha256 as per settings.go logic
+		hash := sha256.Sum256([]byte(rawKey))
+		computedHash := hex.EncodeToString(hash[:])
+
+		if computedHash == keyHash {
 			// Update last_used_at
-			_, _ = s.db.Exec(ctx,
-				`UPDATE api_keys SET last_used_at = NOW() WHERE id = $1`, keyID)
+			// _, _ = s.db.Exec(ctx, `UPDATE api_keys SET last_used_at = NOW() WHERE id = $1`, keyID)
+
+			// Infer environment and is_secret from prefix
+			isSecret := strings.HasPrefix(prefix, "sk")
+			env := "live"
+			if strings.Contains(prefix, "test") {
+				env = "test"
+			}
 
 			return merchantID, env, isSecret, nil
 		}

@@ -132,6 +132,9 @@ export const dashboard = {
     api.get<PaymentLink[]>("/dashboard/links").then((r) => r.data),
 
   deactivatePaymentLink: (id: string) =>
+    api.post(`/dashboard/links/${id}/deactivate`).then((r) => r.data),
+
+  deletePaymentLink: (id: string) =>
     api.delete(`/dashboard/links/${id}`).then((r) => r.data),
 
   // Subscriptions
@@ -178,6 +181,8 @@ export const payments = {
     page?: number;
     limit?: number;
     status?: string;
+    provider?: string;
+    currency?: string;
   }): Promise<TransactionListResponse> => {
     const limit = params?.limit || 20;
     const page = params?.page || 1;
@@ -186,6 +191,12 @@ export const payments = {
     const queryParams: Record<string, any> = { limit, offset };
     if (params?.status && params.status !== "all") {
       queryParams.status = params.status;
+    }
+    if (params?.provider && params.provider !== "all") {
+      queryParams.provider = params.provider;
+    }
+    if (params?.currency && params.currency !== "all") {
+      queryParams.currency = params.currency;
     }
 
     const res = await api.get("/dashboard/transactions", { params: queryParams });

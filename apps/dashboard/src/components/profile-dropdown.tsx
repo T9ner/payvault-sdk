@@ -5,11 +5,9 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SignOutDialog } from '@/components/sign-out-dialog'
@@ -20,9 +18,9 @@ export function ProfileDropdown() {
   const { auth } = useAuthStore()
   const user = auth.user
 
-  const initials = user?.business_name
-    ? user.business_name.substring(0, 2).toUpperCase()
-    : user?.email?.substring(0, 2).toUpperCase() || 'PV'
+  const displayName = user?.business_name || user?.email?.split('@')[0] || 'User'
+
+  const initials = displayName.substring(0, 2).toUpperCase()
 
   return (
     <>
@@ -30,50 +28,27 @@ export function ProfileDropdown() {
         <DropdownMenuTrigger asChild>
           <Button variant='ghost' className='relative h-8 w-8 rounded-full'>
             <Avatar className='h-8 w-8'>
-              <AvatarImage src={user?.avatar_url || ''} alt={user?.business_name || ''} />
+              <AvatarImage src={user?.avatar_url || ''} alt={displayName} />
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className='w-56' align='end' forceMount>
           <DropdownMenuLabel className='font-normal'>
-            <div className='flex flex-col gap-1.5'>
-              <p className='text-sm leading-none font-medium'>
-                {user?.business_name || 'Merchant'}
-              </p>
-              <p className='text-xs leading-none text-muted-foreground'>
-                {user?.email || 'No email provided'}
-              </p>
+            <div className='flex flex-col gap-1'>
+              <p className='text-sm leading-none font-medium'>{displayName}</p>
+              {user?.email && (
+                <p className='text-xs leading-none text-muted-foreground'>{user.email}</p>
+              )}
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem asChild>
-              <Link to='/settings'>
-                Profile
-                <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to='/settings'>
-                Billing
-                <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to='/settings'>
-                Settings
-                <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem>New Team</DropdownMenuItem>
-          </DropdownMenuGroup>
+          <DropdownMenuItem asChild>
+            <Link to='/settings'>Settings</Link>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant='destructive' onClick={() => setOpen(true)}>
             Sign out
-            <DropdownMenuShortcut className='text-current'>
-              ⇧⌘Q
-            </DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

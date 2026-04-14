@@ -32,9 +32,9 @@ export function useSystemSettings() {
 
   const handleGenerateKey = async () => {
     if (
-      apiKey &&
+      apiKeys.length > 0 &&
       !confirm(
-        "Generating a new API key will not revoke existing keys. Continue?"
+        "Generating a new API key will invalidate your current one. Any application using the old key will lose access. Continue?"
       )
     ) {
       return;

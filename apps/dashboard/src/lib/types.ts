@@ -9,6 +9,7 @@ export interface Merchant {
   id: string;
   business_name: string;
   email: string;
+  avatar_url?: string;
   created_at: string;
 }
 

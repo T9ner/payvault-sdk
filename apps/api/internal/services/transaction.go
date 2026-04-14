@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -263,19 +265,61 @@ func (s *TransactionService) RefundTransaction(ctx context.Context, merchantID, 
 	}, nil
 }
 
-// ListTransactions returns paginated transactions for a merchant.
-func (s *TransactionService) ListTransactions(ctx context.Context, merchantID string, limit, offset int) ([]TransactionSummary, int, error) {
+// ListTransactions returns paginated transactions for a merchant with optional filtering.
+func (s *TransactionService) ListTransactions(ctx context.Context, merchantID string, limit, offset int, status, provider, currency string) ([]TransactionSummary, int, error) {
+	// Normalize inputs for database matching
+	status = strings.ToLower(strings.TrimSpace(status))
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+
+	queryPreamble := `WHERE merchant_id = $1`
+	args := []interface{}{merchantID}
+	argCount := 1
+
+	if status != "" && status != "all" {
+		argCount++
+		queryPreamble += fmt.Sprintf(" AND status = $%d", argCount)
+		args = append(args, status)
+	}
+
+	if provider != "" && provider != "all" {
+		argCount++
+		queryPreamble += fmt.Sprintf(" AND provider = $%d", argCount)
+		args = append(args, provider)
+	}
+
+	if currency != "" && currency != "all" {
+		argCount++
+		queryPreamble += fmt.Sprintf(" AND currency = $%d", argCount)
+		args = append(args, currency)
+	}
+
 	var total int
-	err := s.db.QueryRow(ctx, `SELECT COUNT(*) FROM transactions WHERE merchant_id = $1`, merchantID).Scan(&total)
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM transactions %s`, queryPreamble)
+	
+	log.Printf("[DEBUG] ListTransactions Count SQL: %s, Args: %+v", countQuery, args)
+	
+	err := s.db.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	rows, err := s.db.Query(ctx, `
+	if total == 0 {
+		return []TransactionSummary{}, 0, nil
+	}
+
+	listQuery := fmt.Sprintf(`
 		SELECT id, reference, provider, amount, currency, email, status, channel, environment, created_at
-		FROM transactions WHERE merchant_id = $1
-		ORDER BY created_at DESC LIMIT $2 OFFSET $3
-	`, merchantID, limit, offset)
+		FROM transactions %s
+		ORDER BY created_at DESC LIMIT $%d OFFSET $%d
+	`, queryPreamble, argCount+1, argCount+2)
+
+	listArgs := append([]interface{}{}, args...)
+	listArgs = append(listArgs, limit, offset)
+
+	log.Printf("[DEBUG] ListTransactions List SQL: %s, Args: %+v", listQuery, listArgs)
+
+	rows, err := s.db.Query(ctx, listQuery, listArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
