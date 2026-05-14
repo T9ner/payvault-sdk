@@ -1,27 +1,36 @@
 import { format, formatDistanceToNow } from "date-fns";
 
+// Hoisted: reuse formatter instances rather than re-creating on every call.
+const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function getCurrencyFormatter(currency: string): Intl.NumberFormat {
+  if (!currencyFormatterCache.has(currency)) {
+    currencyFormatterCache.set(
+      currency,
+      new Intl.NumberFormat("en-NG", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 2,
+      })
+    );
+  }
+  return currencyFormatterCache.get(currency)!;
+}
+
 /**
  * Format amount in minor units (kobo/cents) to display string.
  * e.g. 500000 NGN -> "NGN 5,000.00"
  */
 export function formatCurrency(amount: number, currency = "NGN"): string {
   const major = amount / 100;
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-  }).format(major);
+  return getCurrencyFormatter(currency).format(major);
 }
 
 /**
  * Format amount already in major units.
  */
 export function formatMajorCurrency(amount: number, currency = "NGN"): string {
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount);
+  return getCurrencyFormatter(currency).format(amount);
 }
 
 /**

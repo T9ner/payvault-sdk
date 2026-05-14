@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, use, useEffect, useState } from 'react'
 import { fonts } from '@/config/fonts'
 import { getCookie, setCookie, removeCookie } from '@/lib/cookies'
 
@@ -50,7 +50,7 @@ export function FontProvider({ children }: { children: React.ReactNode }) {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useFont = () => {
-  const context = useContext(FontContext)
+  const context = use(FontContext)
   if (!context) {
     throw new Error('useFont must be used within a FontProvider')
   }

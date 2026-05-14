@@ -32,7 +32,7 @@ export function DatePicker({
           ) : (
             <span>{placeholder}</span>
           )}
-          <CalendarIcon className='ms-auto h-4 w-4 opacity-50' />
+          <CalendarIcon className='ms-auto size-4 opacity-50' />
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-auto p-0'>

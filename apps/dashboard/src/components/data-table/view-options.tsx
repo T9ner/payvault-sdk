@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { DropdownMenuTrigger } from '@radix-ui/react-dropdown-menu'
 import { MixerHorizontalIcon } from '@radix-ui/react-icons'
 import { type Table } from '@tanstack/react-table'
@@ -34,12 +35,14 @@ export function DataTableViewOptions<TData>({
         <DropdownMenuSeparator />
         {table
           .getAllColumns()
-          .filter(
-            (column) =>
-              typeof column.accessorFn !== 'undefined' && column.getCanHide()
-          )
-          .map((column) => {
-            return (
+          .reduce<React.ReactNode[]>((acc, column) => {
+            if (
+              typeof column.accessorFn === 'undefined' ||
+              !column.getCanHide()
+            ) {
+              return acc
+            }
+            acc.push(
               <DropdownMenuCheckboxItem
                 key={column.id}
                 className='capitalize'
@@ -49,7 +52,8 @@ export function DataTableViewOptions<TData>({
                 {column.id}
               </DropdownMenuCheckboxItem>
             )
-          })}
+            return acc
+          }, [])}
       </DropdownMenuContent>
     </DropdownMenu>
   )

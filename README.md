@@ -303,13 +303,17 @@ The response includes a `slug`. Your checkout URL is:
 ```
 http://your-api-host/api/v1/checkout/{slug}
 ```
-Opening this URL shows a branded dark-theme checkout page. The customer enters their email, clicks Pay, and gets redirected to Paystack's hosted checkout.
+Opening this URL shows a premium, responsive checkout page built with a modern Slate/Indigo brand identity and the Outfit font. The customer enters their email, clicks Pay, and is securely routed to the provider.
 
 ### Link types
 | Type | Behaviour |
 |------|-----------|
 | `fixed` | Amount is set by merchant — customer just enters email |
 | `flexible` | Customer enters both amount and email |
+
+### Link Management
+- **Deactivation**: Toggle links on/off without deleting data.
+- **Soft Deletion**: Safely remove links from the dashboard while maintaining historical records in the database.
 
 ### Recurring Charges
 
@@ -384,7 +388,9 @@ The API is a Go backend that provides a hosted, multi-tenant payment gateway. It
 | `POST /dashboard/api-keys` | JWT | Generate API key |
 | `POST /dashboard/providers` | JWT | Save Paystack/Flutterwave credentials |
 | `POST /dashboard/links` | JWT | Create payment link |
-| `GET /dashboard/links` | JWT | List payment links |
+| `GET /dashboard/links` | JWT | List payment links (active only) |
+| `DELETE /dashboard/links/{id}` | JWT | Soft-delete payment link |
+| `POST /dashboard/links/{id}/deactivate` | JWT | Toggle link active status |
 | `POST /dashboard/transactions/charge` | JWT | Initiate charge |
 | `GET /dashboard/transactions` | JWT | List transactions |
 | `GET /dashboard/transactions/{ref}/verify` | JWT | Verify transaction |
@@ -454,7 +460,7 @@ The Dashboard is a React SPA for merchants to manage transactions, view analytic
 
 - ✅ **Transaction list with status filtering** — `All`, `Success`, `Pending`, `Failed`, `Refunded`
 - ✅ **Create transaction from dashboard** — initiates Paystack checkout
-- ✅ **Payment links** — create, view, deactivate
+- ✅ **Payment links** — create, view, deactivate, and soft-delete
 - ✅ **Subscription plans** — create plans, view active subscriptions
 - ✅ **Fraud rules** — configure velocity, amount, duplicate, and geo rules
 - ✅ **Webhook logs** — view delivery attempts, retry failed webhooks
