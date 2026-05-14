@@ -31,14 +31,14 @@ export function NewChat({ users, onOpenChange, open }: NewChatProps) {
 
   const handleSelectUser = (user: User) => {
     if (!selectedUsers.find((u) => u.id === user.id)) {
-      setSelectedUsers([...selectedUsers, user])
+      setSelectedUsers((prev) => [...prev, user])
     } else {
       handleRemoveUser(user.id)
     }
   }
 
   const handleRemoveUser = (userId: string) => {
-    setSelectedUsers(selectedUsers.filter((user) => user.id !== userId))
+    setSelectedUsers((prev) => prev.filter((user) => user.id !== userId))
   }
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -70,7 +70,7 @@ export function NewChat({ users, onOpenChange, open }: NewChatProps) {
                   }}
                   onClick={() => handleRemoveUser(user.id)}
                 >
-                  <X className='h-3 w-3 text-muted-foreground hover:text-foreground' />
+                  <X className='size-3 text-muted-foreground hover:text-foreground' />
                 </button>
               </Badge>
             ))}
@@ -93,7 +93,7 @@ export function NewChat({ users, onOpenChange, open }: NewChatProps) {
                       <img
                         src={user.profile || '/placeholder.svg'}
                         alt={user.fullName}
-                        className='h-8 w-8 rounded-full'
+                        className='size-8 rounded-full'
                       />
                       <div className='flex flex-col'>
                         <span className='text-sm font-medium'>
@@ -106,7 +106,7 @@ export function NewChat({ users, onOpenChange, open }: NewChatProps) {
                     </div>
 
                     {selectedUsers.find((u) => u.id === user.id) && (
-                      <Check className='h-4 w-4' />
+                      <Check className='size-4' />
                     )}
                   </CommandItem>
                 ))}

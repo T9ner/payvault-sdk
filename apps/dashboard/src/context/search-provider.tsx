@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, use, useEffect, useState } from 'react'
 import { CommandMenu } from '@/components/command-menu'
 
 type SearchContextType = {
@@ -36,7 +36,7 @@ export function SearchProvider({ children }: SearchProviderProps) {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useSearch = () => {
-  const searchContext = useContext(SearchContext)
+  const searchContext = use(SearchContext)
 
   if (!searchContext) {
     throw new Error('useSearch has to be used within SearchProvider')

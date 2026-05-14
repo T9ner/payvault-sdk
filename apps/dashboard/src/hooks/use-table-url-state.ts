@@ -165,8 +165,11 @@ export function useTableUrlState(
 
     const patch: Record<string, unknown> = {}
 
+    // Build a Map for O(1) lookups instead of calling .find() on every iteration
+    const nextById = new Map(next.map((f) => [f.id, f]))
+
     for (const cfg of columnFiltersCfg) {
-      const found = next.find((f) => f.id === cfg.columnId)
+      const found = nextById.get(cfg.columnId)
       const serialize = cfg.serialize ?? ((v: unknown) => v)
       if (cfg.type === 'string') {
         const value =

@@ -26,7 +26,7 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useUsers = () => {
-  const usersContext = React.useContext(UsersContext)
+  const usersContext = React.use(UsersContext)
 
   if (!usersContext) {
     throw new Error('useUsers has to be used within <UsersContext>')

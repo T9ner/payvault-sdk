@@ -16,13 +16,13 @@ export function LegalLayout({ children, title, lastUpdated }: LegalLayoutProps) 
         <div className='container flex h-16 items-center justify-between'>
           <div className='flex items-center gap-2'>
             <Link to='/sign-in' className='flex items-center gap-2 transition-opacity hover:opacity-80'>
-              <Logo className='h-6 w-6' />
+              <Logo className='size-6' />
               <span className='text-lg font-bold tracking-tight'>PayVault</span>
             </Link>
           </div>
           <Button variant='ghost' size='sm' asChild>
             <Link to='/sign-in' className='flex items-center gap-1'>
-              <ChevronLeft className='h-4 w-4' />
+              <ChevronLeft className='size-4' />
               Back to Login
             </Link>
           </Button>
@@ -32,7 +32,7 @@ export function LegalLayout({ children, title, lastUpdated }: LegalLayoutProps) 
       <main className='container py-12 md:py-20'>
         <div className='mx-auto max-w-3xl'>
           <div className='mb-10 space-y-2'>
-            <h1 className='text-4xl font-extrabold tracking-tight lg:text-5xl'>
+            <h1 className='text-4xl font-semibold tracking-tight lg:text-5xl'>
               {title}
             </h1>
             <p className='text-sm text-muted-foreground'>

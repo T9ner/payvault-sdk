@@ -125,7 +125,7 @@ export function AccountForm() {
                             (language) => language.value === field.value
                           )?.label
                         : 'Select language'}
-                      <CaretSortIcon className='ms-2 h-4 w-4 shrink-0 opacity-50' />
+                      <CaretSortIcon className='ms-2 size-4 shrink-0 opacity-50' />
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
