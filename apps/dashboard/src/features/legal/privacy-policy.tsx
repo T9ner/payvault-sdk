@@ -5,7 +5,7 @@ export function PrivacyPolicy() {
     <LegalLayout title='Privacy Policy' lastUpdated='April 9, 2026'>
       <div className='space-y-8'>
         <section className='space-y-4'>
-          <h2 className='text-2xl font-bold'>1. Information We Collect</h2>
+          <h2 className='text-2xl font-semibold'>1. Information We Collect</h2>
           <p>
             At PayVault, we collect information to provide better services to all our merchants. We collect data in the following ways:
           </p>
@@ -17,7 +17,7 @@ export function PrivacyPolicy() {
         </section>
 
         <section className='space-y-4'>
-          <h2 className='text-2xl font-bold'>2. How We Use Information</h2>
+          <h2 className='text-2xl font-semibold'>2. How We Use Information</h2>
           <p>
             We use the information we collect to provide, maintain, protect and improve our services, to develop new ones, and to protect PayVault and our users. This includes:
           </p>
@@ -29,7 +29,7 @@ export function PrivacyPolicy() {
         </section>
 
         <section className='space-y-4'>
-          <h2 className='text-2xl font-bold'>3. Information We Share</h2>
+          <h2 className='text-2xl font-semibold'>3. Information We Share</h2>
           <p>
             We do not share personal information with companies, organizations, or individuals outside of PayVault unless one of the following circumstances applies:
           </p>
@@ -41,7 +41,7 @@ export function PrivacyPolicy() {
         </section>
 
         <section className='space-y-4'>
-          <h2 className='text-2xl font-bold'>4. Data Security</h2>
+          <h2 className='text-2xl font-semibold'>4. Data Security</h2>
           <p>
             We work hard to protect PayVault and our users from unauthorized access to or unauthorized alteration, disclosure or destruction of information we hold. In particular:
           </p>

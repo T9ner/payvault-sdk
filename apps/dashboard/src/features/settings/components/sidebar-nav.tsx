@@ -56,7 +56,7 @@ export function SidebarNav({ className, items, ...props }: SidebarNavProps) {
       >
         <nav
           className={cn(
-            'flex space-x-2 py-1 lg:flex-col lg:space-y-1 lg:space-x-0',
+            'flex gap-2 py-1 lg:flex-col lg:gap-1',
             className
           )}
           {...props}

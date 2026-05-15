@@ -1,5 +1,5 @@
 import { type ChangeEvent, useState } from 'react'
-import { getRouteApi } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { SlidersHorizontal, ArrowUpAZ, ArrowDownAZ } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,8 +19,6 @@ import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { apps } from './data/apps'
 
-const route = getRouteApi('/_authenticated/apps/')
-
 type AppType = 'all' | 'connected' | 'notConnected'
 
 const appText = new Map<AppType, string>([
@@ -30,12 +28,12 @@ const appText = new Map<AppType, string>([
 ])
 
 export function Apps() {
-  const {
-    filter = '',
-    type = 'all',
-    sort: initSort = 'asc',
-  } = route.useSearch()
-  const navigate = route.useNavigate()
+  const searchParams = useSearch({ strict: false }) as Record<string, unknown>
+  const navigate = useNavigate()
+
+  const filter = (searchParams.filter as string) ?? ''
+  const type = (searchParams.type as AppType) ?? 'all'
+  const initSort = (searchParams.sort as 'asc' | 'desc') ?? 'asc'
 
   const [sort, setSort] = useState(initSort)
   const [appType, setAppType] = useState(type)
@@ -59,26 +57,26 @@ export function Apps() {
   const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value)
     navigate({
-      search: (prev) => ({
+      search: (prev: Record<string, unknown>) => ({
         ...prev,
         filter: e.target.value || undefined,
       }),
-    })
+    } as never)
   }
 
   const handleTypeChange = (value: AppType) => {
     setAppType(value)
     navigate({
-      search: (prev) => ({
+      search: (prev: Record<string, unknown>) => ({
         ...prev,
         type: value === 'all' ? undefined : value,
       }),
-    })
+    } as never)
   }
 
   const handleSortChange = (sort: 'asc' | 'desc') => {
     setSort(sort)
-    navigate({ search: (prev) => ({ ...prev, sort }) })
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, sort }) } as never)
   }
 
   return (
@@ -111,7 +109,7 @@ export function Apps() {
               value={searchTerm}
               onChange={handleSearch}
             />
-            <Select value={appType} onValueChange={handleTypeChange}>
+            <Select value={appType} onValueChange={(v) => handleTypeChange(v as AppType)}>
               <SelectTrigger className='w-36'>
                 <SelectValue>{appText.get(appType)}</SelectValue>
               </SelectTrigger>
@@ -168,7 +166,7 @@ export function Apps() {
               </div>
               <div>
                 <h2 className='mb-1 font-semibold'>{app.name}</h2>
-                <p className='line-clamp-2 text-gray-500'>{app.desc}</p>
+                <p className='line-clamp-2 text-muted-foreground'>{app.desc}</p>
               </div>
             </li>
           ))}

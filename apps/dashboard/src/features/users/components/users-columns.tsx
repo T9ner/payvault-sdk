@@ -90,7 +90,7 @@ export const usersColumns: ColumnDef<User>[] = [
       const { status } = row.original
       const badgeColor = callTypes.get(status)
       return (
-        <div className='flex space-x-2'>
+        <div className='flex gap-2'>
           <Badge variant='outline' className={cn('capitalize', badgeColor)}>
             {row.getValue('status')}
           </Badge>

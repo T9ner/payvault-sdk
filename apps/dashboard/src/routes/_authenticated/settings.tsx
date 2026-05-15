@@ -50,7 +50,7 @@ function Settings() {
   return (
     <>
       <Header>
-        <div className='ms-auto flex items-center space-x-4'>
+        <div className='ms-auto flex items-center gap-4'>
           <ThemeSwitch />
           <ProfileDropdown />
         </div>
@@ -67,7 +67,7 @@ function Settings() {
                <Card>
                    <CardHeader className="border-b border-border/50 pb-4">
                        <div className="flex items-center gap-3">
-                           <Terminal className="h-5 w-5 text-blue-500" />
+                           <Terminal className="size-5 text-blue-500" />
                            <CardTitle className="text-base">API Keys</CardTitle>
                        </div>
                    </CardHeader>
@@ -81,7 +81,6 @@ function Settings() {
                             <div className="space-y-6">
                                 {apiKeys.slice(0, 1).map((k) => {
                                     const isNewlyGenerated = apiKey?.id === k.id;
-                                    const keyToCopy = isNewlyGenerated ? apiKey?.key : null;
                                     return (
                                     <div key={k.id} className="space-y-4 pt-4 border-t border-border/50 first:border-0 first:pt-0">
                                         <div className="flex justify-between items-center px-1">
@@ -100,7 +99,7 @@ function Settings() {
                                             )}
                                         </div>
                                         <div className="p-4 rounded-md bg-muted/50 border border-border font-mono text-sm tracking-widest break-all">
-                                            {isNewlyGenerated && showKey ? apiKey?.key : `${k.prefix}${"•".repeat(48)}`}
+                                            {isNewlyGenerated && showKey ? apiKey?.key : `${k.key_prefix}${"•".repeat(48)}`}
                                         </div>
                                         <div className="px-1 space-y-1">
                                             <div className="text-xs text-muted-foreground">Created: {new Date(k.created_at).toLocaleString()}</div>
@@ -111,7 +110,7 @@ function Settings() {
                             </div>
                         ) : (
                             <div className="py-12 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg text-center">
-                                <Lock className="h-8 w-8 text-muted-foreground mb-4 opacity-50" />
+                                <Lock className="size-8 text-muted-foreground mb-4 opacity-50" />
                                 <h4 className="text-sm font-semibold mb-2">No API Key</h4>
                                 <p className="text-xs text-muted-foreground max-w-sm">You haven't generated an API key yet. Create one to start integrating with PayVault.</p>
                             </div>
@@ -126,7 +125,7 @@ function Settings() {
                <Card>
                    <CardHeader className="border-b border-border/50 pb-4">
                         <div className="flex items-center gap-3">
-                           <Server className="h-5 w-5 text-indigo-500" />
+                           <Server className="size-5 text-indigo-500" />
                            <CardTitle className="text-base">Provider Credentials</CardTitle>
                        </div>
                    </CardHeader>
@@ -173,7 +172,7 @@ function Settings() {
                             </div>
 
                             <Button type="submit" disabled={savingProvider || !secretKey}>
-                                <ShieldCheck className="h-4 w-4 mr-2" />
+                                <ShieldCheck className="size-4 mr-2" />
                                 Save Credentials
                             </Button>
                         </form>
