@@ -68,7 +68,7 @@ export function Chats() {
       {/* ===== Top Heading ===== */}
       <Header>
         <Search />
-        <div className='ms-auto flex items-center space-x-4'>
+        <div className='ms-auto flex items-center gap-4'>
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />
@@ -99,7 +99,7 @@ export function Chats() {
               <label
                 className={cn(
                   'focus-within:ring-1 focus-within:ring-ring focus-within:outline-hidden',
-                  'flex h-10 w-full items-center space-x-0 rounded-md border border-border ps-2'
+                  'flex h-10 w-full items-center gap-0 rounded-md border border-border ps-2'
                 )}
               >
                 <SearchIcon size={15} className='me-2 stroke-slate-500' />
@@ -261,7 +261,7 @@ export function Chats() {
                 </div>
                 <form className='flex w-full flex-none gap-2'>
                   <div className='flex flex-1 items-center gap-2 rounded-md border border-input bg-card px-2 py-1 focus-within:ring-1 focus-within:ring-ring focus-within:outline-hidden lg:gap-4'>
-                    <div className='space-x-1'>
+                    <div className='gap-1'>
                       <Button
                         size='icon'
                         type='button'

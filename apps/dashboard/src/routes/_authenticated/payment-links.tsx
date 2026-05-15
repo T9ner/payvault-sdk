@@ -33,7 +33,7 @@ function PaymentLinks() {
   return (
     <>
       <Header>
-        <div className='ms-auto flex items-center space-x-4'>
+        <div className='ms-auto flex items-center gap-4'>
           <ThemeSwitch />
           <ProfileDropdown />
         </div>
@@ -78,7 +78,7 @@ function PaymentLinks() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {links.length === 0 ? (
                 <div className="col-span-full border-2 border-dashed border-border rounded-lg p-12 text-center text-muted-foreground">
-                    <Link2 className="mx-auto h-8 w-8 mb-4 opacity-50" />
+                    <Link2 className="mx-auto size-8 mb-4 opacity-50" />
                     No payment links yet. Create one to get started.
                 </div>
             ) : (
@@ -110,7 +110,7 @@ function PaymentLinks() {
 
                             <div className="flex items-center gap-2">
                                 <Button variant="secondary" className="flex-1 justify-start overflow-hidden text-xs">
-                                   <Link2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                                   <Link2 className="size-4 mr-2 text-muted-foreground" />
                                    <span className="truncate">{getCheckoutUrl(link)}</span>
                                 </Button>
                                 <Button
@@ -119,7 +119,7 @@ function PaymentLinks() {
                                   onClick={() => handleCopyLink(link)}
                                   title="Copy link"
                                 >
-                                    {copied === link.id ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                                    {copied === link.id ? <Check className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -127,7 +127,7 @@ function PaymentLinks() {
                                   onClick={() => handleOpenLink(link)}
                                   title="Open in new tab"
                                 >
-                                    <ExternalLink className="h-4 w-4" />
+                                    <ExternalLink className="size-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -136,7 +136,7 @@ function PaymentLinks() {
                                   onClick={() => setLinkToDelete(link.id)}
                                   title="Delete link"
                                 >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="size-4" />
                                 </Button>
                             </div>
                         </CardContent>
@@ -159,7 +159,7 @@ function PaymentLinks() {
                       <Input
                           id="name"
                           value={form.name}
-                          onChange={(e) => setForm({ ...form, name: e.target.value })}
+                          onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
                           placeholder="e.g. Premium Subscription"
                       />
                   </div>
@@ -168,7 +168,7 @@ function PaymentLinks() {
                       <Textarea
                           id="description"
                           value={form.description}
-                          onChange={(e) => setForm({ ...form, description: e.target.value })}
+                          onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
                           placeholder="What is this payment for?"
                       />
                   </div>
@@ -178,7 +178,7 @@ function PaymentLinks() {
                           id="amount"
                           type="number"
                           value={form.amount || ''}
-                          onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
+                          onChange={(e) => setForm(prev => ({ ...prev, amount: Number(e.target.value) }))}
                           placeholder="Leave 0 for variable amount"
                       />
                   </div>
@@ -186,7 +186,7 @@ function PaymentLinks() {
               <DialogFooter>
                   <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
                   <Button onClick={handleCreate} disabled={creating}>
-                      {creating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</> : 'Create Link'}
+                      {creating ? <><Loader2 className="size-4 mr-2 animate-spin" /> Creating...</> : 'Create Link'}
                   </Button>
               </DialogFooter>
           </DialogContent>
@@ -195,8 +195,8 @@ function PaymentLinks() {
       <Dialog open={!!linkToDelete} onOpenChange={(open) => !open && setLinkToDelete(null)}>
           <DialogContent className="max-w-md">
               <DialogHeader>
-                  <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-                    <AlertTriangle className="h-6 w-6 text-destructive" />
+                  <div className="mx-auto size-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                    <AlertTriangle className="size-6 text-destructive" />
                   </div>
                   <DialogTitle className="text-center">Delete Payment Link?</DialogTitle>
                   <DialogDescription className="text-center">
@@ -206,7 +206,7 @@ function PaymentLinks() {
               <DialogFooter className="flex-col sm:flex-row gap-2">
                   <Button variant="outline" onClick={() => setLinkToDelete(null)} className="flex-1">Cancel</Button>
                   <Button variant="destructive" onClick={handleDelete} disabled={deleting} className="flex-1">
-                      {deleting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deleting...</> : 'Delete Link'}
+                      {deleting ? <><Loader2 className="size-4 mr-2 animate-spin" /> Deleting...</> : 'Delete Link'}
                   </Button>
               </DialogFooter>
           </DialogContent>

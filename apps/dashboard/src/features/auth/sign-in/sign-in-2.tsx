@@ -16,7 +16,7 @@ export function SignIn2() {
           </div>
         </div>
         <div className='mx-auto flex w-full max-w-sm flex-col justify-center space-y-2'>
-          <div className='flex flex-col space-y-2 text-start'>
+          <div className='flex flex-col gap-2 text-start'>
             <h2 className='text-lg font-semibold tracking-tight'>Sign in</h2>
             <p className='text-sm text-muted-foreground'>
               Enter your email and password below <br />

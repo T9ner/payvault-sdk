@@ -31,7 +31,7 @@ export function Analytics() {
               strokeLinecap='round'
               strokeLinejoin='round'
               strokeWidth='2'
-              className='h-4 w-4 text-muted-foreground'
+              className='size-4 text-muted-foreground'
             >
               <path d='M3 3v18h18' />
               <path d='M7 15l4-4 4 4 4-6' />
@@ -55,7 +55,7 @@ export function Analytics() {
               strokeLinecap='round'
               strokeLinejoin='round'
               strokeWidth='2'
-              className='h-4 w-4 text-muted-foreground'
+              className='size-4 text-muted-foreground'
             >
               <circle cx='12' cy='7' r='4' />
               <path d='M6 21v-2a6 6 0 0 1 12 0v2' />
@@ -77,7 +77,7 @@ export function Analytics() {
               strokeLinecap='round'
               strokeLinejoin='round'
               strokeWidth='2'
-              className='h-4 w-4 text-muted-foreground'
+              className='size-4 text-muted-foreground'
             >
               <path d='M3 12h6l3 6 3-6h6' />
             </svg>
@@ -98,7 +98,7 @@ export function Analytics() {
               strokeLinecap='round'
               strokeLinejoin='round'
               strokeWidth='2'
-              className='h-4 w-4 text-muted-foreground'
+              className='size-4 text-muted-foreground'
             >
               <circle cx='12' cy='12' r='10' />
               <path d='M12 6v6l4 2' />

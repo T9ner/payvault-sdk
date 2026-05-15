@@ -27,7 +27,7 @@ function Fraud() {
   return (
     <>
       <Header>
-        <div className='ms-auto flex items-center space-x-4'>
+        <div className='ms-auto flex items-center gap-4'>
           <ThemeSwitch />
           <ProfileDropdown />
         </div>
@@ -44,7 +44,7 @@ function Fraud() {
                 <Card>
                     <CardHeader className='pb-4 border-b border-border/50'>
                         <div className="flex items-center gap-3">
-                            <Target className="h-5 w-5 text-rose-500" />
+                            <Target className="size-5 text-rose-500" />
                             <CardTitle className="text-base">Fraud Rules</CardTitle>
                         </div>
                     </CardHeader>
@@ -60,14 +60,14 @@ function Fraud() {
                                             <button
                                                 key={t.value}
                                                 type="button"
-                                                onClick={() => setRuleForm({ ...ruleForm, rule_type: t.value })}
+                                                onClick={() => setRuleForm(prev => ({ ...prev, rule_type: t.value }))}
                                                 className={cn(
                                                     "w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left",
                                                     isSelected ? "border-rose-500/50 bg-rose-500/5 ring-1 ring-rose-500/20" : "border-border hover:bg-muted/50"
                                                 )}
                                             >
                                                 <div className={cn("p-2 rounded-md", isSelected ? "bg-rose-500/10 text-rose-500" : "bg-muted text-muted-foreground")}>
-                                                    <Icon className="h-4 w-4" />
+                                                    <Icon className="size-4" />
                                                 </div>
                                                 <div>
                                                     <p className={cn("text-sm font-semibold", isSelected ? "text-foreground" : "text-muted-foreground")}>{t.label}</p>
@@ -86,7 +86,7 @@ function Fraud() {
                                     min="1" 
                                     required 
                                     value={ruleForm.threshold} 
-                                    onChange={(e) => setRuleForm({ ...ruleForm, threshold: Number(e.target.value) })}
+                                    onChange={(e) => setRuleForm(prev => ({ ...prev, threshold: Number(e.target.value) }))}
                                 />
                             </div>
 
@@ -97,7 +97,7 @@ function Fraud() {
                                         <button
                                             key={action}
                                             type="button"
-                                            onClick={() => setRuleForm({ ...ruleForm, action: action as 'flag' | 'block' })}
+                                            onClick={() => setRuleForm(prev => ({ ...prev, action: action as 'flag' | 'block' }))}
                                             className={cn(
                                                 "flex-1 py-1.5 rounded-sm text-xs font-semibold uppercase flex justify-center items-center",
                                                 ruleForm.action === action ? (action === 'block' ? 'bg-rose-500 text-primary-foreground shadow' : 'bg-amber-500 text-primary-foreground shadow') : 'text-muted-foreground hover:bg-muted'
@@ -121,7 +121,7 @@ function Fraud() {
                 <Card className="h-full">
                     <CardHeader className='pb-4 border-b border-border/50'>
                          <div className="flex items-center gap-3">
-                            <ShieldAlert className="h-5 w-5 text-muted-foreground" />
+                            <ShieldAlert className="size-5 text-muted-foreground" />
                             <CardTitle className="text-base">Flagged Events</CardTitle>
                         </div>
                     </CardHeader>
@@ -139,8 +139,8 @@ function Fraud() {
                                 {events.length === 0 ? (
                                     <tr>
                                         <td colSpan={4} className="p-12 text-center">
-                                            <div className="mx-auto w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mb-3">
-                                                <ShieldCheck className="h-6 w-6" />
+                                            <div className="mx-auto size-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mb-3">
+                                                <ShieldCheck className="size-6" />
                                             </div>
                                             <p className="font-semibold text-foreground">No Fraud Detected</p>
                                             <p className="text-sm text-muted-foreground">No suspicious activity detected.</p>

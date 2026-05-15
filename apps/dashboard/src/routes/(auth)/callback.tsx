@@ -69,7 +69,7 @@ function AuthCallback() {
   return (
     <div className='flex h-screen w-full flex-col items-center justify-center gap-4 bg-background'>
       <div className='flex flex-col items-center animate-in fade-in zoom-in duration-500'>
-        <Loader2 className='h-12 w-12 animate-spin text-primary' />
+        <Loader2 className='size-12 animate-spin text-primary' />
         <h2 className='mt-6 text-2xl font-semibold tracking-tight'>
           Authenticating...
         </h2>

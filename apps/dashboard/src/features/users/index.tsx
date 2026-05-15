@@ -1,4 +1,4 @@
-import { getRouteApi } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -11,17 +11,15 @@ import { UsersProvider } from './components/users-provider'
 import { UsersTable } from './components/users-table'
 import { users } from './data/users'
 
-const route = getRouteApi('/_authenticated/users/')
-
 export function Users() {
-  const search = route.useSearch()
-  const navigate = route.useNavigate()
+  const search = useSearch({ strict: false })
+  const navigate = useNavigate()
 
   return (
     <UsersProvider>
       <Header fixed>
         <Search />
-        <div className='ms-auto flex items-center space-x-4'>
+        <div className='ms-auto flex items-center gap-4'>
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />

@@ -27,9 +27,9 @@ export function UserAuthForm({ className, redirectTo: _redirectTo, ...props }: U
         className='h-12 w-full text-base font-semibold transition-all hover:bg-secondary/50'
       >
         {isLoading ? (
-          <Loader2 className='mr-2 h-5 w-5 animate-spin' />
+          <Loader2 className='mr-2 size-5 animate-spin' />
         ) : (
-          <IconGithub className='mr-2 h-5 w-5' />
+          <IconGithub className='mr-2 size-5' />
         )}
         Continue with GitHub
       </Button>

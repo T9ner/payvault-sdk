@@ -132,7 +132,7 @@ export function TasksMutateDrawer({
                     <RadioGroup
                       onValueChange={field.onChange}
                       defaultValue={field.value}
-                      className='flex flex-col space-y-1'
+                      className='flex flex-col gap-1'
                     >
                       <FormItem className='flex items-center'>
                         <FormControl>
@@ -170,7 +170,7 @@ export function TasksMutateDrawer({
                     <RadioGroup
                       onValueChange={field.onChange}
                       defaultValue={field.value}
-                      className='flex flex-col space-y-1'
+                      className='flex flex-col gap-1'
                     >
                       <FormItem className='flex items-center'>
                         <FormControl>

@@ -53,7 +53,7 @@ export const tasksColumns: ColumnDef<Task>[] = [
       const label = labels.find((label) => label.value === row.original.label)
 
       return (
-        <div className='flex space-x-2'>
+        <div className='flex gap-2'>
           {label && <Badge variant='outline'>{label.label}</Badge>}
           <span className='truncate font-medium'>{row.getValue('title')}</span>
         </div>

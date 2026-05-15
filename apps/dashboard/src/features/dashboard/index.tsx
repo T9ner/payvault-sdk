@@ -47,7 +47,7 @@ export function Dashboard() {
   return (
     <>
       <Header>
-        <div className='ms-auto flex items-center space-x-4'>
+        <div className='ms-auto flex items-center gap-4'>
           <ThemeSwitch />
           <ProfileDropdown />
         </div>
@@ -68,7 +68,7 @@ export function Dashboard() {
                 <CardTitle className='text-sm font-medium'>
                   Total Volume
                 </CardTitle>
-                <DollarSign className='h-4 w-4 text-muted-foreground' />
+                <DollarSign className='size-4 text-muted-foreground' />
               </CardHeader>
               <CardContent>
                 <div className='text-2xl font-bold'>{formatCurrency(displayVol * 100, primaryCurrency)}</div>
@@ -83,7 +83,7 @@ export function Dashboard() {
                 <CardTitle className='text-sm font-medium'>
                   Transactions
                 </CardTitle>
-                <Activity className='h-4 w-4 text-muted-foreground' />
+                <Activity className='size-4 text-muted-foreground' />
               </CardHeader>
               <CardContent>
                 <div className='text-2xl font-bold'>+{displayTxCount}</div>
@@ -96,7 +96,7 @@ export function Dashboard() {
             <Card>
               <CardHeader className='flex flex-row items-center justify-between pb-2'>
                 <CardTitle className='text-sm font-medium'>Active Links</CardTitle>
-                <ShoppingBag className='h-4 w-4 text-muted-foreground' />
+                <ShoppingBag className='size-4 text-muted-foreground' />
               </CardHeader>
               <CardContent>
                 <div className='text-2xl font-bold'>{displayActiveLinks}</div>
@@ -119,7 +119,7 @@ export function Dashboard() {
                   strokeLinecap='round'
                   strokeLinejoin='round'
                   strokeWidth='2'
-                  className='h-4 w-4 text-muted-foreground'
+                  className='size-4 text-muted-foreground'
                 >
                   <path d='M22 12h-4l-3 9L9 3l-3 9H2' />
                 </svg>
@@ -143,7 +143,7 @@ export function Dashboard() {
                      {isUsingFallback && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-[1px] z-10 rounded-lg">
                             <div className="text-center p-6 bg-background border rounded-2xl shadow-sm">
-                                <Activity className="mx-auto h-8 w-8 text-muted-foreground/50 mb-3" />
+                                <Activity className="mx-auto size-8 text-muted-foreground/50 mb-3" />
                                 <p className="text-sm font-medium">No transaction volume found</p>
                                 <p className="text-xs text-muted-foreground mt-1">Activity for the last 7 days will appear here.</p>
                             </div>
@@ -154,7 +154,7 @@ export function Dashboard() {
                                 data={activityData} 
                                 margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                                 barGap={4}
-                                categoryGap="20%"
+                                barCategoryGap="20%"
                            >
                                   <CartesianGrid 
                                     strokeDasharray='3 3' 

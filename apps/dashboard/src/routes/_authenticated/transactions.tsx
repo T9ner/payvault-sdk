@@ -8,7 +8,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,7 +20,7 @@ import { transactionStatusTabs } from '@/data/mockData'
 import { cn } from '@/lib/utils'
 import type { TransactionStatus } from '@/lib/types'
 import { 
-    Loader2, Search, Filter, Copy, ExternalLink, 
+    Loader2, Search, Filter, Copy, 
     ArrowUpRight, CreditCard, Banknote, RefreshCcw, 
     XCircle, Clock, CheckCircle2 
 } from 'lucide-react'
@@ -53,7 +52,7 @@ function Transactions() {
   return (
     <>
       <Header>
-        <div className='ms-auto flex items-center space-x-4'>
+        <div className='ms-auto flex items-center gap-4'>
           <ThemeSwitch />
           <ProfileDropdown />
         </div>
@@ -67,7 +66,7 @@ function Transactions() {
           </div>
           <div className="flex items-center gap-2">
             <Button onClick={() => setCreateModalOpen(true)} className="rounded-full px-6">
-                <ArrowUpRight className="mr-2 h-4 w-4" /> New Payment
+                <ArrowUpRight className="mr-2 size-4" /> New Payment
             </Button>
           </div>
         </div>
@@ -77,7 +76,7 @@ function Transactions() {
             <Card className="bg-gradient-to-br from-background to-muted/20 border-border/50 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total Volume (30d)</CardTitle>
-                    <Banknote className="h-4 w-4 text-muted-foreground" />
+                    <Banknote className="size-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">
@@ -89,7 +88,7 @@ function Transactions() {
             <Card className="bg-gradient-to-br from-background to-muted/20 border-border/50 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <CheckCircle2 className="size-4 text-emerald-500" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold text-emerald-500">
@@ -101,7 +100,7 @@ function Transactions() {
             <Card className="bg-gradient-to-br from-background to-muted/20 border-border/50 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Successful Payments</CardTitle>
-                    <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                    <ArrowUpRight className="size-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">
@@ -113,7 +112,7 @@ function Transactions() {
             <Card className="bg-gradient-to-br from-background to-muted/20 border-border/50 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Pending</CardTitle>
-                    <Clock className="h-4 w-4 text-amber-500" />
+                    <Clock className="size-4 text-amber-500" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold text-amber-500">
@@ -144,7 +143,7 @@ function Transactions() {
                     ))}
                 </div>
                 <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input 
                         placeholder="Search by reference or email..." 
                         className="pl-10 rounded-full bg-background"
@@ -183,7 +182,7 @@ function Transactions() {
                             <tr>
                                 <td colSpan={6} className="p-12 text-center">
                                     <div className="flex flex-col items-center justify-center gap-2">
-                                        <Filter className="h-8 w-8 text-muted-foreground/30" />
+                                        <Filter className="size-8 text-muted-foreground/30" />
                                         <p className="text-muted-foreground font-medium">No transactions found</p>
                                         <p className="text-xs text-muted-foreground text-center max-w-[200px]">
                                             Try adjusting your filters or search query to find what you're looking for.
@@ -215,7 +214,7 @@ function Transactions() {
                                                     onClick={(e) => { e.stopPropagation(); copyToClipboard(tx.reference, "Reference") }}
                                                     className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
                                                 >
-                                                    <Copy className="h-3 w-3 text-muted-foreground" />
+                                                    <Copy className="size-3 text-muted-foreground" />
                                                 </button>
                                             </div>
                                         </td>
@@ -228,13 +227,13 @@ function Transactions() {
                                                 "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
                                                 style.bg, style.text
                                             )}>
-                                                <StatusIcon className="h-3 w-3" />
+                                                <StatusIcon className="size-3" />
                                                 {tx.status}
                                             </div>
                                         </td>
                                         <td className="p-4 align-middle">
                                             <div className="flex items-center gap-2">
-                                                <CreditCard className="h-3 w-3 text-muted-foreground" />
+                                                <CreditCard className="size-3 text-muted-foreground" />
                                                 <span className="capitalize text-muted-foreground">{tx.provider}</span>
                                             </div>
                                         </td>
@@ -281,7 +280,7 @@ function Transactions() {
                                     <p className="text-xs text-muted-foreground">Reference</p>
                                     <div className="flex items-center gap-1 text-sm font-mono font-medium">
                                         {selected.reference.slice(0, 16)}...
-                                        <Copy className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(selected.reference, "Reference")} />
+                                        <Copy className="size-3 cursor-pointer text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(selected.reference, "Reference")} />
                                     </div>
                                 </div>
                                 <div className="space-y-1">
@@ -321,7 +320,7 @@ function Transactions() {
                                 className="w-full text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200"
                                 onClick={() => setConfirmRefundOpen(true)}
                             >
-                                <RefreshCcw className="mr-2 h-4 w-4" /> Refund Transaction
+                                <RefreshCcw className="mr-2 size-4" /> Refund Transaction
                             </Button>
                         )}
                         <Button variant="secondary" className="w-full" onClick={() => setSelected(null)}>
@@ -347,7 +346,7 @@ function Transactions() {
                           id="email"
                           type="email"
                           value={form.email}
-                          onChange={(e) => setForm({ ...form, email: e.target.value })}
+                          onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
                           placeholder="customer@example.com"
                           className="rounded-lg"
                       />
@@ -360,7 +359,7 @@ function Transactions() {
                             id="amount"
                             type="number"
                             value={form.amount || ''}
-                            onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
+                            onChange={(e) => setForm(prev => ({ ...prev, amount: Number(e.target.value) }))}
                             placeholder="0.00"
                             className="pl-7 rounded-lg font-bold"
                         />
@@ -370,7 +369,7 @@ function Transactions() {
               <DialogFooter>
                   <Button variant="ghost" onClick={() => setCreateModalOpen(false)}>Cancel</Button>
                   <Button onClick={handleCreateTransaction} disabled={creating} className="rounded-lg px-8">
-                      {creating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</> : 'Continue to Payment'}
+                      {creating ? <><Loader2 className="size-4 mr-2 animate-spin" /> Processing...</> : 'Continue to Payment'}
                   </Button>
               </DialogFooter>
           </DialogContent>
@@ -388,7 +387,7 @@ function Transactions() {
               <DialogFooter>
                   <Button variant="ghost" onClick={() => setConfirmRefundOpen(false)}>No, Keep it</Button>
                   <Button variant="destructive" onClick={handleRefund} disabled={refunding}>
-                      {refunding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {refunding ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
                       Yes, Refund Transaction
                   </Button>
               </DialogFooter>

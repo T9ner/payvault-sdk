@@ -157,7 +157,7 @@ export function SignUpForm({
             type='button'
             disabled={isLoading}
           >
-            <IconGithub className='h-4 w-4' /> GitHub
+            <IconGithub className='size-4' /> GitHub
           </Button>
           <Button
             variant='outline'
@@ -165,7 +165,7 @@ export function SignUpForm({
             type='button'
             disabled={isLoading}
           >
-            <IconFacebook className='h-4 w-4' /> Facebook
+            <IconFacebook className='size-4' /> Facebook
           </Button>
         </div>
       </form>
